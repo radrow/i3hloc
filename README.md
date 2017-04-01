@@ -1,1 +1,1 @@
-# My project's README
+# i3hloc
