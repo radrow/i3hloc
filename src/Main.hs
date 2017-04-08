@@ -7,7 +7,7 @@ import Hloc
 
 mainLoop :: IO()
 mainLoop = do
-  putStrLn prefix
+  putStrLn jsonInit
   forever $ do
     statusList <- getBarText
     putStrLn statusList
