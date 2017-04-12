@@ -5,7 +5,11 @@ import Data.Char
 import Colors
 
 spanSurround :: String -> String -> String -> String
-spanSurround s p t = "<span "++s++"='"++p++"'>"++t++"</span>"
+spanSurround par val text = "<span " ++ par ++ "='" ++ val ++ "'>" ++ text ++ "</span>"
+
+maybeSurround :: String -> Maybe String -> String -> String
+maybeSurround _ Nothing s = s
+maybeSurround par (Just val) text = spanSurround par val text
 
 colorString :: Maybe Color -> String -> String
 colorString (Just (Color c)) s =
