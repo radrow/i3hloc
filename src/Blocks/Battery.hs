@@ -1,4 +1,4 @@
-module Blocks.Battery where
+module Blocks.Battery(getBatteryState) where
 
 import Web.FontAwesomeType
 import System.Process
@@ -7,7 +7,7 @@ import Data.List.Split
 import Colors
 import Pango
 
-fa :: FontAwesome -> Char
+fa :: FontAwesome -> Char -- FontAwesome enum conversion
 fa = fontAwesomeChar
 
 acpiOutput :: IO String
@@ -20,13 +20,14 @@ stateToSymbol state percent = case state of
                then [fa FaBolt, ' ', fa FaPlug]
                else [fa FaPlug, ' ', fa FaHeart]
   "Unknown" -> "???"
-  "Discharging" -> [batterySymbol] where batterySymbol | percent >= 95 = fa FaHeart
-                                                      | percent > 80 = fa FaBattery4
-                                                      | percent > 60 = fa FaBattery3
-                                                      | percent > 40 = fa FaBattery2
-                                                      | percent > 20 = fa FaBattery1
-                                                      | percent > 10 = fa FaBattery0
-                                                      | otherwise = fa FaHeartbeat
+  "Discharging" -> [batterySymbol]
+    where batterySymbol | percent >= 95 = fa FaHeart
+                        | percent > 80 = fa FaBattery4
+                        | percent > 60 = fa FaBattery3
+                        | percent > 40 = fa FaBattery2
+                        | percent > 20 = fa FaBattery1
+                        | percent > 10 = fa FaBattery0
+                        | otherwise = fa FaHeartbeat
   _ -> "coś się zjebało"
 
 getColorByPercent :: Int -> Color
@@ -47,7 +48,7 @@ getBgColorByPercent p = if p > 6 then Nothing
                         else Just Colors.black
 
 parsePercent :: String -> Int
-parsePercent = read . init
+parsePercent = read . takeWhile (/='%')
 
 getBatteryState :: IO String
 getBatteryState = do
@@ -55,8 +56,11 @@ getBatteryState = do
   let parsed = tail . splitOn " " . filter (/=',') $ acpi
       state = parsed !! 1
       percent = parsePercent (parsed !! 2)
-      time = if state == "Full" || (percent == 100) || ':' `notElem` parsed !! 3
-        then "(∞:∞)" else parsed !! 3
+      time = if state == "Full"
+             || (percent == 100)
+             || ':' `notElem` parsed !! 3
+             then "(∞:∞)"
+             else parsed !! 3
 
       color = getColorByPercent percent
       bgColor = getBgColorByPercent percent
@@ -64,6 +68,7 @@ getBatteryState = do
 
       maybeShow (Just c) = Just (show c)
       maybeShow Nothing = Nothing
-      pangoSurround = maybeSurround "bgcolor" (maybeShow bgColor) . spanSurround "color" (show color)
+      pangoSurround = maybeSurround "bgcolor" (maybeShow bgColor)
+                      . spanSurround "color" (show color)
 
   return $ pangoSurround (symbol ++ " " ++ show percent ++ "% " ++ time)

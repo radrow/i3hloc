@@ -18,14 +18,14 @@ validateColor (Color c) | length c /= 7 = Nothing
                                 False (tail c) = Nothing
                         | otherwise = Just (Color c)
 
-dark :: Color -> Color
-dark (Color c) = Color s where
+light :: Color -> Color
+light (Color c) = Color s where
   s = map (\x -> if x `elem` "012345678abcde" then succ x
                 else if x == '9' then 'a'
                 else x) c
 
-light :: Color -> Color
-light (Color c) = Color s where
+dark :: Color -> Color
+dark (Color c) = Color s where
   s = map (\x -> if x `elem` "123456789bcdef" then pred x
                 else if x == 'a' then '9'
                 else x) c

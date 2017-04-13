@@ -1,5 +1,7 @@
 module Block where
 
+import Control.Exception
+
 import Colors
 import Pango
 
@@ -22,13 +24,18 @@ newBlock = Block { color = Colors.white
                 , underline = None
                 }
 
+handleBlockException :: SomeException -> IO String
+handleBlockException _ = return errMsg where
+  errMsg = spanSurround "color" "red" "(BLOCK ERROR)"
+
+forceBlockEvaluation :: IO String -> IO String
+forceBlockEvaluation bmonad = do
+  b <- bmonad
+  evaluate b
 
 blockToJson :: Block -> IO String
--- blockToJson b = (\ t -> "{\"markup\":\"pango\", \"full_text\": \""
---                        ++ colorString (color b) t ++ "\"}") <$> (fullText b)
-
 blockToJson b = do
-  t <- fullText b
+  t <- forceBlockEvaluation (fullText b) `catch` handleBlockException
   return $ surroundBrackets . apply $ t where
     surroundBrackets t = "{\"markup\":\"pango\", \"full_text\":\"" ++ t ++ "\"}"
     apply :: String -> String
