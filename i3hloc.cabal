@@ -19,4 +19,6 @@ executable i3hloc
   build-depends:       base > 4 && < 9,
                        process,
                        split,
-                       font-awesome-type
+                       font-awesome-type,
+                       directory,
+                       clock

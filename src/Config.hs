@@ -5,8 +5,9 @@ import Web.FontAwesomeType
 import Block
 import Blocks.Time
 import Blocks.Command
-import Colors
 import Blocks.Battery
+import Blocks.Bandwidth
+import Colors
 import Pango
 
 fa = fontAwesomeChar
@@ -28,7 +29,7 @@ myBattery = newBlock {
   }
 
 myWindow = newBlock {
-  fullText = customCommand "xdotool" ["getactivewindow", "getwindowname"]
+  fullText = customCommandOut "xdotool" ["getactivewindow", "getwindowname"]
   , color = yellow
   , underline = Error
   }
@@ -38,13 +39,23 @@ myLight = newBlock {
              . (`div` (10 :: Integer))
              . (+1)
              . read -- lol
-             . takeWhile (/= '.') <$> customCommand "light" []
+             . takeWhile (/= '.') <$> customCommandOut "light" []
   , prefix = [fa FaSunO, ' ']
+  }
+
+myWifi = newBlock {
+  fullText = getInterfaceFullInfoModified ([fa FaWifi, ' ']++) 2 "wlp6s0"
+  }
+
+myEth = newBlock {
+  fullText = getInterfaceFullInfoModified ([fa FaSitemap, ' ']++) 2 "enp7s0"
   }
 
 blocks :: [Block]
 blocks = [ myWindow
          , myLight
+         , myWifi
+         , myEth
          , myBattery
          , myDate
          , myTime

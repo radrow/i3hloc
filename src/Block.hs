@@ -36,8 +36,16 @@ forceBlockEvaluation bmonad = do
 blockToJson :: Block -> IO String
 blockToJson b = do
   t <- forceBlockEvaluation (fullText b) `catch` handleBlockException
-  return $ surroundBrackets . apply $ t where
+  return $ surroundBrackets . fixQuotes . apply $ t where
     surroundBrackets t = "{\"markup\":\"pango\", \"full_text\":\"" ++ t ++ "\"}"
+    fixQuotes :: String -> String
+    fixQuotes = reverse . fix [] where
+      fix :: String -> String -> String
+      fix acc s = case s of
+        [] -> acc
+        '"':t -> fix ('\"':'\\':acc) t -- because reverse!
+        h:t -> fix (h:acc) t
+
     apply :: String -> String
     apply = foldl (flip (.)) id mods
     mods :: [String -> String]
