@@ -44,6 +44,7 @@ blockToJson b = do
       fix acc s = case s of
         [] -> acc
         '"':t -> fix ('\"':'\\':acc) t -- because reverse!
+        '\\':t -> fix acc t
         h:t -> fix (h:acc) t
 
     apply :: String -> String

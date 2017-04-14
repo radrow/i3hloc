@@ -9,6 +9,7 @@ author:              Radoslaw Rowicki
 maintainer:          radrowicki@gmail.com
 category:            utils
 build-type:          Simple
+ghc-options:         -O2
 cabal-version:       >=1.10
 extra-source-files:  README.md
 
