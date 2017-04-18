@@ -25,10 +25,10 @@ parseVol status = read -- to int
 
 getVolume :: IO Int
 getVolume = do
-  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master", "|", "grep", "'Front Left:'", "|", "awk", "'{print $6}'"]
+  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master"]
   return $ parseVol audioStatus
 
 isMute :: IO Bool
 isMute = do
-  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master", "|", "grep", "'Front Left:'", "|", "awk", "'{print $6}'"]
+  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master"]
   return $ parseMute audioStatus
