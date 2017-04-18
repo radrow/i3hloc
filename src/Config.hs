@@ -7,6 +7,7 @@ import Blocks.Time
 import Blocks.Command
 import Blocks.Battery
 import Blocks.Bandwidth
+import Blocks.Volume
 import Colors
 import Pango
 
@@ -51,9 +52,22 @@ myEth = newBlock {
   fullText = getInterfaceFullInfoModified ([fa FaSitemap, ' ']++) 2 "enp7s0"
   }
 
+myVol = newBlock {
+  fullText = do
+      mute <- isMute
+      vol <- getVolume
+      let out | mute = [fa FaVolumeOff, fa FaTimes]
+              | vol < 15 = fa FaVolumeOff : ' ' : show vol
+              | vol < 65 = fa FaVolumeDown : ' ' : show vol
+              | otherwise = fa FaVolumeUp : ' ' : show vol
+      return out
+  , color = yellow
+  }
+
 blocks :: [Block]
 blocks = [ myWindow
          , myLight
+         , myVol
          , myWifi
          , myEth
          , myBattery
