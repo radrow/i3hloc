@@ -6,7 +6,7 @@ import System.Clock
 
 import Hloc
 
--- period over 1 milion with current second display is reasonless
+-- period over 1 milion with current time display is reasonless
 period :: Integer
 period = 1000000
 
