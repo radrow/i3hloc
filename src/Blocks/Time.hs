@@ -1,12 +1,15 @@
+{-#LANGUAGE OverloadedStrings#-}
+
 module Blocks.Time where
 
+import Data.Text as T
 import System.Process
 
-getTime :: [String] -> IO String
-getTime sequences = init <$> readProcess "date" [args] ""
-  where args = '+': concat sequences
+getTime :: [Text] -> IO Text
+getTime sequences = T.init . pack <$> readProcess "date" [unpack args] ""
+  where args = "+" `T.append` T.concat sequences
 
-type Seq = String
+type Seq = Text
 
 weekdayNameShort :: Seq
 weekdayNameFull :: Seq

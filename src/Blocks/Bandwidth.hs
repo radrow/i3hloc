@@ -1,3 +1,5 @@
+{-#LANGUAGE OverloadedStrings#-}
+
 module Blocks.Bandwidth( getInterfaceUpSpeed
                        , getInterfaceDownSpeed
                        , getInterfaceState
@@ -8,12 +10,12 @@ module Blocks.Bandwidth( getInterfaceUpSpeed
 import Control.Monad
 import System.Directory
 import System.Clock
-import Data.List.Split
+import Data.Text as T
 
 import Pango
 import Colors
 
-data State = Dormant | Up | Down | Missing deriving (Show, Eq)
+data State = Dormant | Up | Down | Missing deriving (Eq, Show)
 
 stateToColor :: State -> Color
 stateToColor state = case state of
@@ -22,14 +24,17 @@ stateToColor state = case state of
                 Dormant -> orange
                 Missing -> red
 
-parseSpeedFile :: String -> (Integer, Integer, Rational)
-parseSpeedFile s = let splitted = splitOn "\n" s in (read . head $ splitted, read $ splitted!!1, read $ splitted !! 2)
+parseSpeedFile :: Text -> (Integer, Integer, Rational)
+parseSpeedFile s = let splitted = T.splitOn "\n" s in ( read . unpack . Prelude.head $ splitted
+                                                      , read . unpack $ splitted!!1
+                                                      , read . unpack $ splitted !! 2)
 
-getInterfaceState :: String -> IO State
+getInterfaceState :: Text -> IO State
 getInterfaceState interface = do
-  operstateExists <- doesFileExist $ "/sys/class/net/"++interface++"/operstate"
+  let file = T.concat["/sys/class/net/", interface, "/operstate"]
+  operstateExists <- doesFileExist (unpack file)
   if operstateExists
-    then do state <- filter (/= '\n') <$> readFile ("/sys/class/net/"++interface++"/operstate")
+    then do state <- Prelude.filter (/= '\n') <$> readFile (unpack file)
             return $ case state of
               "up" -> Up
               "down" -> Down
@@ -37,63 +42,62 @@ getInterfaceState interface = do
               _ -> Missing
     else return Missing
 
-
-getInterfaceUpSpeed :: Rational -> String -> IO String
+getInterfaceUpSpeed :: Rational -> Text -> IO Text
 getInterfaceUpSpeed period = getInterfaceSpeed period "tx_bytes"
 
-getInterfaceDownSpeed :: Rational -> String -> IO String
+getInterfaceDownSpeed :: Rational -> Text -> IO Text
 getInterfaceDownSpeed period = getInterfaceSpeed period "rx_bytes"
 
-getInterfaceSpeed :: Rational -> String -> String -> IO String
+getInterfaceSpeed :: Rational -> Text -> Text -> IO Text
 getInterfaceSpeed minimumPeriod file interface = do
-  createDirectoryIfMissing True ("/dev/shm/"++interface)
-  let
-      lastStateFile = "/dev/shm/" ++ interface ++ "/" ++ file
-      currentStateFile = "/sys/class/net/" ++ interface ++ "/statistics/" ++ file
-      tmp = (++".tmp")
+  createDirectoryIfMissing True ("/dev/shm/" ++ unpack interface)
+  let lastStateFile = T.concat ["/dev/shm/", interface, "/", file]
+      currentStateFile = T.concat ["/sys/class/net/", interface, "/statistics/", file]
+      tmp = (`T.append` ".tmp")
 
-  tempFileExists <- doesFileExist lastStateFile
+  tempFileExists <- doesFileExist $ unpack lastStateFile
 
-  currentBytes <- read <$> readFile currentStateFile
+  currentBytes <- read <$> readFile (unpack currentStateFile)
   currentTime <- toNanoSecs <$> getTime Monotonic
 
   unless tempFileExists $
-    writeFile lastStateFile $ show currentBytes ++ "\n" ++ show currentTime ++ "\n" ++ "0"
+    writeFile (unpack lastStateFile) $ show currentBytes ++ "\n" ++ show currentTime ++ "\n" ++ "0"
 
-  (lastBytes, lastTime, prevSpeed) <- parseSpeedFile <$> readFile lastStateFile
+  (lastBytes, lastTime, prevSpeed) <- parseSpeedFile . pack <$>
+                                     readFile (unpack lastStateFile)
 
   let deltaBytes = fromIntegral (currentBytes - lastBytes)
-      deltaTime = fromIntegral (currentTime - lastTime) / 10^9
+      deltaTime = fromIntegral (currentTime - lastTime) / (10^(9 :: Int))
 
       speedInBps = if deltaTime < minimumPeriod
                    then prevSpeed
                    else deltaBytes / deltaTime
 
   when (deltaTime >= minimumPeriod)
-    (writeFile (tmp lastStateFile) ( show currentBytes
+    (writeFile (unpack . tmp $ lastStateFile) ( show currentBytes
                                      ++ "\n" ++ show currentTime
                                      ++ "\n" ++ show speedInBps))
-  copyFile (tmp lastStateFile) lastStateFile
+  copyFile (unpack . tmp $ lastStateFile) (unpack lastStateFile)
 
-  let out | speedInBps > 2 * 10^6 = show (round (speedInBps / 10^6)) ++ " MBps"
-          | speedInBps > 10^3 = show (round (speedInBps / 10^3)) ++ " kBps"
-          | speedInBps >= 0         = show (round speedInBps) ++ " Bps"
+  let out | speedInBps > 2 * 10^(6 :: Int) = show (round (speedInBps / 10^(6 :: Int)) :: Int) ++ " MBps"
+          | speedInBps > 10^(3 :: Int) = show (round (speedInBps / 10^(3 :: Int)) :: Int) ++ " kBps"
+          | speedInBps >= 0         = show (round speedInBps :: Int) ++ " Bps"
           | otherwise = "(loading)" -- during initialisation it produces sick values
-    in return out
+    in return $ pack out
 
-getInterfaceFullInfo :: Rational -> String -> IO String
+getInterfaceFullInfo :: Rational -> Text -> IO Text
 getInterfaceFullInfo = getInterfaceFullInfoModified id
 
-getInterfaceFullInfoModified :: (String -> String) -> Rational -> String -> IO String
+getInterfaceFullInfoModified :: (Text -> Text) -> Rational -> Text -> IO Text
 getInterfaceFullInfoModified f period interface = do
   state <- getInterfaceState interface
   up <- getInterfaceUpSpeed period interface
   down <- getInterfaceDownSpeed period interface
 
   let info = case state of
-               Up -> down ++ "↓ " ++ up ++ "↑"
+               Up -> T.concat [down, "↓ ", up, "↑"]
                Down -> "down"
                Dormant -> "disconnected"
-               Missing -> interface ++ " is missing!"
+               Missing -> T.concat [interface, " is missing!"]
 
-  return $ spanSurround "color" (show . stateToColor $ state) (f info)
+  return $ spanSurround "color" (pack $ show . stateToColor $ state) (f info)

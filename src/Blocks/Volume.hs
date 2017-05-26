@@ -1,27 +1,29 @@
+{-#LANGUAGE OverloadedStrings#-}
+
 module Blocks.Volume( getVolume
                     , isMute
                     ) where
 
-import Data.List.Split
+import qualified Data.Text as T
+import Data.Text(Text, pack, unpack)
 
 import Blocks.Command(customCommandOut)
 
-parseMute :: String -> Bool
-parseMute status = (=="[off]")
-                . (last . init) -- last word
-                . splitOn " " -- split words
-                . last -- last line
-                . splitOn "\n" -- split lines
-                $ status
+parseMute :: Text -> Bool
+parseMute = (=="[off]")
+            . (last . init) -- last word
+            . T.splitOn " " -- split words
+            . last -- last line
+            . T.splitOn "\n" -- split lines
 
-parseVol :: String -> Int
-parseVol status = read -- to int
-                . (tail . init . init) -- remove firs and two last chars
-                . (last . init . init) -- pre-last word
-                . splitOn " " -- split words
-                . last -- last line
-                . splitOn "\n" -- split lines
-                $ status
+parseVol :: Text -> Int
+parseVol = read -- to int
+           . unpack -- to string
+           . (T.tail . T.init . T.init) -- remove firs and two last chars
+           . last . init . init -- pre-last word
+           . T.splitOn " " -- split words
+           . last -- last line
+           . T.splitOn "\n" -- split lines
 
 getVolume :: IO Int
 getVolume = do
