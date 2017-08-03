@@ -17,8 +17,11 @@ executable i3hloc
   hs-source-dirs:      src
   main-is:             Main.hs
   default-language:    Haskell2010
+  extensions:          OverloadedStrings,
+                       MultiWayIf
   build-depends:       base > 4 && < 9,
                        clock,
+                       containers >= 0.5,
                        directory,
                        font-awesome-type,
                        process,
@@ -27,15 +30,22 @@ executable i3hloc
                        regex-posix,
                        split,
                        text,
-                       text-show
+                       json,
+                       bytestring >= 0.10,
+                       trifecta >= 1.7,
+                       raw-strings-qq >= 1.1,
+                       mtl >= 2.2
 
-  Other-modules:       Block,
-                       Blocks.Bandwidth,
-                       Blocks.Battery,
-                       Blocks.Command,
-                       Blocks.Time,
-                       Blocks.Volume,
-                       Colors,
-                       Config,
-                       Hloc,
+  other-modules:       Blocks.Bandwidth
+                       Blocks.Battery
+                       Blocks.Command
+                       Blocks.Time
+                       Blocks.Volume
+                       Hloc
+                       Config
                        Pango
+                       Colors
+                       Block
+                       DisplayText
+                       Parsing.ConfigParser
+                       Testing.Examples

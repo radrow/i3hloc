@@ -1,46 +1,60 @@
-{-#LANGUAGE OverloadedStrings#-}
-{-#LANGUAGE FlexibleInstances#-}
-{-#LANGUAGE ExistentialQuantification#-}
-
 module Block where
 
 import Control.Exception
 
 import Colors
-import Pango
+import Pango hiding (Error)
+import DisplayText
+
 import qualified Data.Text as T
-import Data.Text(Text, pack, unpack)
+import Data.Text(Text, pack)
+
+instance Show DisplayText where show _ = "IO"
 
 data Block = Block
   { color :: Color
   , bgColor :: Maybe Color
-  , fullText :: IO Text
+  , displayText :: DisplayText
   , prefix :: Text
   , suffix :: Text
   , underline :: UnderlineMode
-  }
+  } deriving Show
 
-staticText :: Text -> IO Text
+staticText :: String -> IO String
 staticText = return
 
-
-newBlock = Block { color = Colors.white
+newBlock :: Block
+newBlock = Block { displayText = undefined
+                 , color = Colors.white
                  , bgColor = Nothing
                  , prefix = ""
                  , suffix = ""
                  , underline = None
                  }
 
+getDisplayedText :: Block -> IO Text
+getDisplayedText b =
+  let (DisplayText d) = displayText b in d
+
+
+errorBlock :: String -> Block
+errorBlock errorText = newBlock
+  { displayText = display $ staticText errorText
+  , color = red
+  , prefix = "["
+  , suffix = "]"
+  }
+
 handleBlockException :: SomeException -> IO Text
 handleBlockException _ = return errMsg where
-  errMsg = spanSurround "color" "red" "(BLOCK ERROR)"
+  errMsg = spanSurround "color" "red" "[BLOCK ERROR]"
 
 forceBlockEvaluation :: IO Text -> IO Text
 forceBlockEvaluation = (>>= evaluate)
 
 blockToJson :: Block -> IO Text
 blockToJson b = do
-  t <- forceBlockEvaluation (fullText b) `catch` handleBlockException
+  t <- forceBlockEvaluation (getDisplayedText b) `catch` handleBlockException
   return $ surroundBrackets . fixQuotes . apply $ t where
     surroundBrackets t = T.concat ["{\"markup\":\"pango\", \"full_text\":\"", t, "\"}"]
     fixQuotes :: Text -> Text
@@ -61,7 +75,7 @@ blockToJson b = do
            , applyBgColor
            , applyColor
            ]
-    applyPrefix =  (prefix b `T.append`)
+    applyPrefix = (prefix b `T.append`)
     applySuffix = (`T.append` suffix b)
     applyUnderline = case underline b of
       None -> id
@@ -70,4 +84,3 @@ blockToJson b = do
       Nothing -> id
       Just c -> spanSurround "bgcolor" (pack . show $ c)
     applyColor = spanSurround "color" (pack . show $ color b)
-

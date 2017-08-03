@@ -1,4 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
 module Pango where
 
 import Data.Text as T
@@ -24,3 +23,10 @@ instance Show UnderlineMode where
   show Double = "double"
   show Error = "error"
 
+underlineModeFromString :: String -> Maybe UnderlineMode
+underlineModeFromString s = case s of
+  "none" -> Just None
+  "single" -> Just Single
+  "double" -> Just Double
+  "error" -> Just Error
+  _ -> Nothing

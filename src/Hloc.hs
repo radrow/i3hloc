@@ -1,5 +1,3 @@
-{-#LANGUAGE OverloadedStrings#-}
-
 module Hloc(
   jsonInit,
   getBarText,
@@ -28,7 +26,6 @@ getBarText blocks = let
   surround s = T.concat ["[", s, "],"]
   in surround
      . T.init . T.init
-     -- . T.tail . T.tail -- remove ", "
      <$> foldr (liftM2 glue)
      (return "") jsons -- glue all blocks
 

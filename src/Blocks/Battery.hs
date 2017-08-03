@@ -6,7 +6,6 @@ import Web.FontAwesomeType
 import System.Process
 import qualified Data.Text as T
 import Data.Text(pack, unpack, Text)
-import TextShow
 
 import Colors
 import Pango

@@ -1,5 +1,3 @@
-{-#LANGUAGE OverloadedStrings#-}
-
 module Colors where
 
 import Data.Text as T
@@ -29,6 +27,22 @@ dark (Color c) = Color s where
                 else if x == 'a' then '9'
                 else x) c
 
+makeColor :: String -> Maybe Color
+makeColor s = case s of
+  "black" -> Just black
+  "white" -> Just white
+  "red" -> Just red
+  "green" -> Just green
+  "blue" -> Just blue
+  "yellow" -> Just yellow
+  "cyan" -> Just cyan
+  "magenta" -> Just magenta
+  "orange" -> Just orange
+  "purple" -> Just purple
+  "pink" -> Just pink
+  "lightGray" -> Just lightGray
+  "darkGray" -> Just darkGray
+  _ -> validateColor $ Color $ pack s
 
 black :: Color
 white :: Color

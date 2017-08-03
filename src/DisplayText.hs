@@ -1,28 +1,28 @@
+{-# LANGUAGE FlexibleInstances #-}
+
 module DisplayText where
 
 import Data.Text
-import Text.JSON
 
-data DisplayText = AsString (IO String)
-                 | AsText (IO Text)
-                 | AsInteger (IO Integer)
-                 | AsRational (IO Rational)
+newtype DisplayText = DisplayText (IO Text)
 
-instance JSON DisplayText where
-  readJSON js = case js of
-    JSString s -> Ok (staticText . pack $ fromJSString s)
-    JSRational _ i -> if isInt i then staticInteger (floor i)
-                   else staticRational i where isInt x = x == fromInteger (round x)
+class Display a where
+  display :: IO a -> DisplayText
 
+instance Display Text where
+  display = DisplayText
 
-staticText :: Text -> DisplayText
-staticText = AsText . return
+instance Display [Char] where
+  display s = DisplayText (pack <$> s)
 
-staticString :: String -> DisplayText
-staticString = AsString . return
+instance Display Bool where
+  display = DisplayText . (pack . show <$>)
 
-staticInteger :: Integer -> DisplayText
-staticInteger = AsInteger . return
+instance Display Integer where
+  display = DisplayText . (pack . show <$>)
 
-staticRational :: Rational -> DisplayText
-staticRational = AsRational . return
+instance Display Double where
+  display = DisplayText . (pack . show <$>)
+
+instance Display Char where
+  display = DisplayText . (pack . (:[]) <$>)

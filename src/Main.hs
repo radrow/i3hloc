@@ -1,5 +1,3 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Main where
 
 import Control.Monad
@@ -27,7 +25,7 @@ mainLoop = do
   TIO.putStrLn jsonInit
   forever $ do
     preTime <- (`div`1000) . toNanoSecs <$> getTime Monotonic
-    statusList <- readConfigFile "tunicniema" >>= getBarText
+    statusList <- readConfigFile "tunicniema" >>= getBarText -- TODO tunicniema
     for repeats (TIO.putStrLn statusList)
     postTime <- (`div`1000) . toNanoSecs <$> getTime Monotonic
 
