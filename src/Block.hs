@@ -1,4 +1,16 @@
-module Block where
+module Block( staticText
+            , makeBlock
+            , blockToJson
+            , Block( underline
+                   , color
+                   , bgColor
+                   , prefix
+                   , suffix
+                   , displayText
+                   )
+            , errorBlock
+            , getDisplayedText
+            ) where
 
 import Control.Exception
 
@@ -9,8 +21,6 @@ import DisplayText
 import qualified Data.Text as T
 import Data.Text(Text, pack)
 
-instance Show DisplayText where show _ = "IO"
-
 data Block = Block
   { color :: Color
   , bgColor :: Maybe Color
@@ -18,7 +28,7 @@ data Block = Block
   , prefix :: Text
   , suffix :: Text
   , underline :: UnderlineMode
-  } deriving Show
+  }
 
 staticText :: String -> IO String
 staticText = return
@@ -31,6 +41,9 @@ newBlock = Block { displayText = undefined
                  , suffix = ""
                  , underline = None
                  }
+
+makeBlock :: DisplayText -> Block
+makeBlock d = newBlock{displayText = d}
 
 getDisplayedText :: Block -> IO Text
 getDisplayedText b =
@@ -54,7 +67,7 @@ forceBlockEvaluation = (>>= evaluate)
 
 blockToJson :: Block -> IO Text
 blockToJson b = do
-  t <- forceBlockEvaluation (getDisplayedText b) `catch` handleBlockException
+  t <- forceBlockEvaluation (getDisplayedText b) -- `catch` handleBlockException
   return $ surroundBrackets . fixQuotes . apply $ t where
     surroundBrackets t = T.concat ["{\"markup\":\"pango\", \"full_text\":\"", t, "\"}"]
     fixQuotes :: Text -> Text

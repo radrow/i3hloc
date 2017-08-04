@@ -29,6 +29,10 @@ float period = 2
 string type = bandwidth
 string interface = enp7s0
 float period = 2
+
+[battery]
+string type = battery
+
 |]
 
 

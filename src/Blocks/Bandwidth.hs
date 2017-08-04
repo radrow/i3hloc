@@ -48,10 +48,13 @@ getInterfaceDownSpeed period = getInterfaceSpeed period "rx_bytes"
 
 getInterfaceSpeed :: Double -> String -> String -> IO Text
 getInterfaceSpeed minimumPeriod file interface = do
+  -- creating directory in /dev/shm
   createDirectoryIfMissing True ("/dev/shm/" ++ interface)
+
+  -- path to managed file, path to readed file, temporary maker
   let lastStateFile = Prelude.concat ["/dev/shm/", interface, "/", file]
       currentStateFile = Prelude.concat ["/sys/class/net/", interface, "/statistics/", file]
-      tmp = (++)".tmp"
+      tmp = (++".tmp")
 
   tempFileExists <- doesFileExist lastStateFile
 

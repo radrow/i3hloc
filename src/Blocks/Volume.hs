@@ -1,11 +1,9 @@
-{-#LANGUAGE OverloadedStrings#-}
-
 module Blocks.Volume( getVolume
                     , isMute
                     ) where
 
 import qualified Data.Text as T
-import Data.Text(Text, pack, unpack)
+import Data.Text(Text, unpack)
 
 import Blocks.Command(customCommandOut)
 
@@ -27,10 +25,10 @@ parseVol = read -- to int
 
 getVolume :: IO Int
 getVolume = do
-  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master"]
+  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master"] ""
   return $ parseVol audioStatus
 
 isMute :: IO Bool
 isMute = do
-  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master"]
+  audioStatus <- customCommandOut "amixer" ["-D", "pulse", "get", "Master"] ""
   return $ parseMute audioStatus

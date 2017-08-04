@@ -34,7 +34,9 @@ executable i3hloc
                        bytestring >= 0.10,
                        trifecta >= 1.7,
                        raw-strings-qq >= 1.1,
-                       mtl >= 2.2
+                       mtl >= 2.2,
+                       time >= 1.6,
+                       dates
 
   other-modules:       Blocks.Bandwidth
                        Blocks.Battery

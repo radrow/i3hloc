@@ -1,81 +1,67 @@
-{-#LANGUAGE OverloadedStrings#-}
-
 module Blocks.Time where
 
-import Data.Text as T
-import System.Process
+import Control.Monad.State
+import Data.Time.Calendar
+import Data.Time.Clock
+import Data.Dates( dayToDateTime
+                 , day
+                 , month
+                 , year
+                 , dateWeekDay
+                 )
 
-getTime :: [Text] -> IO Text
-getTime sequences = T.init . pack <$> readProcess "date" [unpack args] ""
-  where args = "+" `T.append` T.concat sequences
+twoDigit :: String -> String
+twoDigit s | null s        = "00"
+           | length s == 1 = '0':s
+           | otherwise     = s
 
-type Seq = Text
+data Seq = Separator String
+         | Sec
+         | Minute
+         | Hour24
+         | Hour12
+         | Day
+         | Month
+         | Year
+         | WeekDayFull
+         | WeekDayShort
+         | CenturyYear
 
-weekdayNameShort :: Seq
-weekdayNameFull :: Seq
-weekdayNameShort = "%a"
-weekdayNameFull = "%A"
+extractSeq :: Seq -> UTCTime -> String
+extractSeq s t =
+  let sec = diffTimeToPicoseconds (utctDayTime t) `div` (1000 * 1000 * 1000 * 1000)
+      dateTime = dayToDateTime (utctDay t)
+  in case s of
+    Sec ->  twoDigit . show $ sec `mod` 60
+    Minute ->  twoDigit . show $ sec `div` 60 `mod` 60
+    Hour24 ->  twoDigit . show $ sec `div` 3600 `mod` 24
+    Hour12 ->  twoDigit . show $ sec `div` 3600 `mod` 12
+    Day ->  twoDigit . show $ day dateTime
+    Month ->  twoDigit . show $ month dateTime
+    Year ->  twoDigit . show $ year dateTime
+    WeekDayFull ->  show $ dateWeekDay dateTime
+    WeekDayShort -> take 3 $ show $ dateWeekDay dateTime
+    CenturyYear -> twoDigit . show $ year dateTime `mod` 100
+    Separator se -> se
 
-monthNameShort :: Seq
-monthNameFull :: Seq
-monthNameShort = "%b"
-monthNameFull = "%B"
+readSeq :: Char -> Maybe Seq
+readSeq s = case s of
+  's' -> Just Sec
+  'm' -> Just Minute
+  'h' -> Just Hour12
+  'H' -> Just Hour24
+  'd' -> Just Day
+  'M' -> Just Month
+  'Y' -> Just Year
+  'y' -> Just CenturyYear
+  'W' -> Just WeekDayFull
+  'w' -> Just WeekDayShort
+  _ -> Nothing
 
-dateAndTime :: Seq
-dateAndTime = "%c"
+getTime :: [Seq] -> IO String
+getTime format = do
+  time <- getCurrentTime
+  return $ flip evalState ("" :: String) $ do
+    l <- forM format $ \s -> return (extractSeq s time)
+    return $ concat l
 
-century :: Seq
-century = "%C"
-
-dayOfMonth :: Seq
-dayOfMonth = "%d"
-
-date :: Seq
-date = "%D"
-fullDate :: Seq
-fullDate = "%F"
-
-centuryYear :: Seq
-centuryYear = "%y"
-
-hour24 :: Seq
-hour12 :: Seq
-hour24 = "%H"
-hour12 = "%I"
-
-dayOfYear :: Seq
-dayOfYear = "%j"
-
-month :: Seq
-month = "%m"
-
-minute :: Seq
-minute = "%M"
-
-nanosec :: Seq
-nanosec = "%N"
-
-ampm :: Seq
-ampm = "%p"
-
-clock12 :: Seq
-clock24 :: Seq
-clock12 = "%r"
-clock24 = "%R"
-
-second :: Seq
-second = "%S"
-
-weekdayMon :: Seq
-weekdaySun :: Seq
-weekdayMon = "%u"
-weekdaySun = "%w"
-
-weekNum :: Seq
-weekNum = "%V"
-
-year :: Seq
-year = "%Y"
-
-timezone :: Seq
-timezone = "%:z"

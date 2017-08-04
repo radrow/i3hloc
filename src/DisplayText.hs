@@ -3,6 +3,7 @@
 module DisplayText where
 
 import Data.Text
+import System.Exit
 
 newtype DisplayText = DisplayText (IO Text)
 
@@ -18,6 +19,9 @@ instance Display [Char] where
 instance Display Bool where
   display = DisplayText . (pack . show <$>)
 
+instance Display Int where
+  display = DisplayText . (pack . show <$>)
+
 instance Display Integer where
   display = DisplayText . (pack . show <$>)
 
@@ -26,3 +30,8 @@ instance Display Double where
 
 instance Display Char where
   display = DisplayText . (pack . (:[]) <$>)
+
+instance Display ExitCode where
+  display = DisplayText . (pack . show . readCode <$>) where
+    readCode ExitSuccess = 0
+    readCode (ExitFailure n) = n
