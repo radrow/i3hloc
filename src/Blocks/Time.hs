@@ -1,8 +1,8 @@
 module Blocks.Time where
 
 import Control.Monad.State
-import Data.Time.Calendar
 import Data.Time.Clock
+import Data.Time.LocalTime
 import Data.Dates( dayToDateTime
                  , day
                  , month
@@ -13,7 +13,7 @@ import Data.Dates( dayToDateTime
 twoDigit :: String -> String
 twoDigit s | null s        = "00"
            | length s == 1 = '0':s
-           | otherwise     = s
+           | otherwise     = take 2 s
 
 data Seq = Separator String
          | Sec
@@ -25,17 +25,19 @@ data Seq = Separator String
          | Year
          | WeekDayFull
          | WeekDayShort
+         | AmPm
          | CenturyYear
 
-extractSeq :: Seq -> UTCTime -> String
+extractSeq :: Seq -> LocalTime -> String
 extractSeq s t =
-  let sec = diffTimeToPicoseconds (utctDayTime t) `div` (1000 * 1000 * 1000 * 1000)
-      dateTime = dayToDateTime (utctDay t)
+  let timeOfDay = localTimeOfDay t
+      dateTime = dayToDateTime (localDay t)
   in case s of
-    Sec ->  twoDigit . show $ sec `mod` 60
-    Minute ->  twoDigit . show $ sec `div` 60 `mod` 60
-    Hour24 ->  twoDigit . show $ sec `div` 3600 `mod` 24
-    Hour12 ->  twoDigit . show $ sec `div` 3600 `mod` 12
+    Sec ->  twoDigit . show $ todSec timeOfDay
+    Minute ->  twoDigit . show $ todMin timeOfDay
+    Hour24 ->  twoDigit . show $ todHour timeOfDay
+    Hour12 ->  twoDigit . show $ todHour timeOfDay `mod` 12
+    AmPm -> if todHour timeOfDay < 12 then "am" else "pm"
     Day ->  twoDigit . show $ day dateTime
     Month ->  twoDigit . show $ month dateTime
     Year ->  twoDigit . show $ year dateTime
@@ -56,11 +58,14 @@ readSeq s = case s of
   'y' -> Just CenturyYear
   'W' -> Just WeekDayFull
   'w' -> Just WeekDayShort
+  'a' -> Just AmPm
   _ -> Nothing
 
 getTime :: [Seq] -> IO String
 getTime format = do
-  time <- getCurrentTime
+  utcTime <- getCurrentTime
+  timeZone <- getCurrentTimeZone
+  let time = utcToLocalTime timeZone utcTime
   return $ flip evalState ("" :: String) $ do
     l <- forM format $ \s -> return (extractSeq s time)
     return $ concat l
