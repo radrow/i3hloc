@@ -67,7 +67,7 @@ forceBlockEvaluation = (>>= evaluate)
 
 blockToJson :: Block -> IO Text
 blockToJson b = do
-  t <- forceBlockEvaluation (getDisplayedText b) -- `catch` handleBlockException
+  t <- forceBlockEvaluation (getDisplayedText b) `catch` handleBlockException
   return $ surroundBrackets . fixQuotes . apply $ t where
     surroundBrackets t = T.concat ["{\"markup\":\"pango\", \"full_text\":\"", t, "\"}"]
     fixQuotes :: Text -> Text
