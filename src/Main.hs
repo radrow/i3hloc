@@ -60,7 +60,16 @@ updateArgsData l acc =
     _ -> newArgsData {printHelp = True}
 
 help :: String
-help = "Hi! This is help\n"
+help = unlines
+  [ "i3hloc - streamer of JSON data for i3bar"
+  , ""
+  , "Options:"
+  , "-h --help - displays this help"
+  , "--printDefaultConfig - prints default config to stdin"
+  , "-i - installs used config in default directory (.config/i3hloc)"
+  , "-c <FILE> uses FILE as config"
+  , "-d uses default configuration"
+  ]
 
 defaultConfig :: String
 defaultConfig = unlines
