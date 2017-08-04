@@ -4,23 +4,30 @@ module Hloc(
   version
   ) where
 
+import qualified Data.Text as T
+import Data.Text(Text, pack, unpack)
 import Control.Monad
 
-import Config
 import Block
 
-version :: String
+version :: Text
 version = "1"
 
-jsonInit :: String
-jsonInit = "{\"version\":"++version++", \"click_events\":true} ["
+jsonInit :: Text
+jsonInit = T.concat ["{\"version\":", version, ", \"click_events\":true} ["]
 
-getBarText :: IO String
-getBarText = let
+getBarText :: [Block] -> IO Text
+getBarText blocks = let
+  jsons :: [IO Text]
   jsons = map blockToJson blocks
-  glue s1 s2 = (", " ++ s1) ++ s2
-  surround s = "[" ++ s ++ "],"
-  in surround . tail . tail <$> foldr (liftM2 glue) (return "") jsons
+  glue :: Text -> Text -> Text
+  glue s1 s2 = T.concat [s1, ", ", s2]
+  surround :: Text -> Text
+  surround s = T.concat ["[", s, "],"]
+  in surround
+     . T.init . T.init
+     <$> foldr (liftM2 glue)
+     (return "") jsons -- glue all blocks
 
 
 

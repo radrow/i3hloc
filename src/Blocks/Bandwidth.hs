@@ -8,12 +8,12 @@ module Blocks.Bandwidth( getInterfaceUpSpeed
 import Control.Monad
 import System.Directory
 import System.Clock
-import Data.List.Split
+import Data.Text as T
 
 import Pango
 import Colors
 
-data State = Dormant | Up | Down | Missing deriving (Show, Eq)
+data State = Dormant | Up | Down | Missing deriving (Eq, Show)
 
 stateToColor :: State -> Color
 stateToColor state = case state of
@@ -22,14 +22,17 @@ stateToColor state = case state of
                 Dormant -> orange
                 Missing -> red
 
-parseSpeedFile :: String -> (Integer, Integer, Rational)
-parseSpeedFile s = let splitted = splitOn "\n" s in (read . head $ splitted, read $ splitted!!1, read $ splitted !! 2)
+parseSpeedFile :: Text -> (Integer, Integer, Double)
+parseSpeedFile s = let splitted = T.splitOn "\n" s in ( read . unpack . Prelude.head $ splitted
+                                                      , read . unpack $ splitted!!1
+                                                      , read . unpack $ splitted !! 2)
 
 getInterfaceState :: String -> IO State
 getInterfaceState interface = do
-  operstateExists <- doesFileExist $ "/sys/class/net/"++interface++"/operstate"
+  let file = Prelude.concat["/sys/class/net/", interface, "/operstate"]
+  operstateExists <- doesFileExist file
   if operstateExists
-    then do state <- filter (/= '\n') <$> readFile ("/sys/class/net/"++interface++"/operstate")
+    then do state <- Prelude.filter (/= '\n') <$> readFile file
             return $ case state of
               "up" -> Up
               "down" -> Down
@@ -37,19 +40,20 @@ getInterfaceState interface = do
               _ -> Missing
     else return Missing
 
-
-getInterfaceUpSpeed :: Rational -> String -> IO String
+getInterfaceUpSpeed :: Double -> String -> IO Text
 getInterfaceUpSpeed period = getInterfaceSpeed period "tx_bytes"
 
-getInterfaceDownSpeed :: Rational -> String -> IO String
+getInterfaceDownSpeed :: Double -> String -> IO Text
 getInterfaceDownSpeed period = getInterfaceSpeed period "rx_bytes"
 
-getInterfaceSpeed :: Rational -> String -> String -> IO String
+getInterfaceSpeed :: Double -> String -> String -> IO Text
 getInterfaceSpeed minimumPeriod file interface = do
-  createDirectoryIfMissing True ("/dev/shm/"++interface)
-  let
-      lastStateFile = "/dev/shm/" ++ interface ++ "/" ++ file
-      currentStateFile = "/sys/class/net/" ++ interface ++ "/statistics/" ++ file
+  -- creating directory in /dev/shm
+  createDirectoryIfMissing True ("/dev/shm/" ++ interface)
+
+  -- path to managed file, path to readed file, temporary maker
+  let lastStateFile = Prelude.concat ["/dev/shm/", interface, "/", file]
+      currentStateFile = Prelude.concat ["/sys/class/net/", interface, "/statistics/", file]
       tmp = (++".tmp")
 
   tempFileExists <- doesFileExist lastStateFile
@@ -60,10 +64,11 @@ getInterfaceSpeed minimumPeriod file interface = do
   unless tempFileExists $
     writeFile lastStateFile $ show currentBytes ++ "\n" ++ show currentTime ++ "\n" ++ "0"
 
-  (lastBytes, lastTime, prevSpeed) <- parseSpeedFile <$> readFile lastStateFile
+  (lastBytes, lastTime, prevSpeed) <- parseSpeedFile . pack <$>
+                                     readFile lastStateFile
 
   let deltaBytes = fromIntegral (currentBytes - lastBytes)
-      deltaTime = fromIntegral (currentTime - lastTime) / 10^9
+      deltaTime = fromIntegral (currentTime - lastTime) / (10^(9 :: Int))
 
       speedInBps = if deltaTime < minimumPeriod
                    then prevSpeed
@@ -75,25 +80,25 @@ getInterfaceSpeed minimumPeriod file interface = do
                                      ++ "\n" ++ show speedInBps))
   copyFile (tmp lastStateFile) lastStateFile
 
-  let out | speedInBps > 2 * 10^6 = show (round (speedInBps / 10^6)) ++ " MBps"
-          | speedInBps > 10^3 = show (round (speedInBps / 10^3)) ++ " kBps"
-          | speedInBps >= 0         = show (round speedInBps) ++ " Bps"
+  let out | speedInBps > 2 * 10^(6 :: Int) = show (round (speedInBps / 10^(6 :: Int)) :: Int) ++ " MBps"
+          | speedInBps > 10^(3 :: Int) = show (round (speedInBps / 10^(3 :: Int)) :: Int) ++ " kBps"
+          | speedInBps >= 0         = show (round speedInBps :: Int) ++ " Bps"
           | otherwise = "(loading)" -- during initialisation it produces sick values
-    in return out
+    in return $ pack out
 
-getInterfaceFullInfo :: Rational -> String -> IO String
+getInterfaceFullInfo :: Double -> String -> IO Text
 getInterfaceFullInfo = getInterfaceFullInfoModified id
 
-getInterfaceFullInfoModified :: (String -> String) -> Rational -> String -> IO String
+getInterfaceFullInfoModified :: (Text -> Text) -> Double -> String -> IO Text
 getInterfaceFullInfoModified f period interface = do
   state <- getInterfaceState interface
   up <- getInterfaceUpSpeed period interface
   down <- getInterfaceDownSpeed period interface
 
   let info = case state of
-               Up -> down ++ "↓ " ++ up ++ "↑"
+               Up -> T.concat [down, "↓ ", up, "↑"]
                Down -> "down"
                Dormant -> "disconnected"
-               Missing -> interface ++ " is missing!"
+               Missing -> T.concat [pack interface, " is missing!"]
 
-  return $ spanSurround "color" (show . stateToColor $ state) (f info)
+  return $ spanSurround "color" (pack $ show . stateToColor $ state) (f info)

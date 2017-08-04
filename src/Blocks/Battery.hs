@@ -1,8 +1,11 @@
+{-#LANGUAGE OverloadedStrings#-}
+
 module Blocks.Battery(getBatteryState) where
 
 import Web.FontAwesomeType
 import System.Process
-import Data.List.Split
+import qualified Data.Text as T
+import Data.Text(pack, unpack, Text)
 
 import Colors
 import Pango
@@ -10,17 +13,17 @@ import Pango
 fa :: FontAwesome -> Char -- FontAwesome enum conversion
 fa = fontAwesomeChar
 
-acpiOutput :: IO String
-acpiOutput = readProcess "acpi" ["-b"] ""
+acpiOutput :: IO Text
+acpiOutput = pack <$> readProcess "acpi" ["-b"] ""
 
-stateToSymbol :: String -> Int -> String
+stateToSymbol :: Text -> Int -> Text
 stateToSymbol state percent = case state of
-  "Full" -> [fa FaPlug, ' ', fa FaHeart]
+  "Full" -> pack [fa FaPlug, ' ', fa FaHeart]
   "Charging" -> if percent < 95
-               then [fa FaBolt, ' ', fa FaPlug]
-               else [fa FaPlug, ' ', fa FaHeart]
+               then pack [fa FaBolt, ' ', fa FaPlug]
+               else pack [fa FaPlug, ' ', fa FaHeart]
   "Unknown" -> "???"
-  "Discharging" -> [batterySymbol]
+  "Discharging" -> pack [batterySymbol]
     where batterySymbol | percent >= 95 = fa FaHeart
                         | percent > 80 = fa FaBattery4
                         | percent > 60 = fa FaBattery3
@@ -47,18 +50,18 @@ getBgColorByPercent :: Int -> Maybe Color
 getBgColorByPercent p = if p > 6 then Nothing
                         else Just Colors.black
 
-parsePercent :: String -> Int
-parsePercent = read . takeWhile (/='%')
+parsePercent :: Text -> Int
+parsePercent = read . takeWhile (/='%') . unpack
 
-getBatteryState :: IO String
+getBatteryState :: IO Text
 getBatteryState = do
   acpi <- acpiOutput
-  let parsed = tail . splitOn " " . filter (/=',') $ acpi
+  let parsed = tail . T.splitOn " " . T.filter (/=',') $ acpi
       state = parsed !! 1
       percent = parsePercent (parsed !! 2)
       time = if state == "Full"
              || (percent == 100)
-             || ':' `notElem` parsed !! 3
+             || (/=':') `T.all` (parsed !! 3)
              then "(∞:∞)"
              else parsed !! 3
 
@@ -68,7 +71,7 @@ getBatteryState = do
 
       maybeShow (Just c) = Just (show c)
       maybeShow Nothing = Nothing
-      pangoSurround = maybeSurround "bgcolor" (maybeShow bgColor)
-                      . spanSurround "color" (show color)
+      pangoSurround = maybeSurround "bgcolor" (pack <$> maybeShow bgColor)
+                      . spanSurround "color" (pack . show $ color)
 
-  return $ pangoSurround (symbol ++ " " ++ show percent ++ "% " ++ time)
+  return $ pangoSurround (T.concat [symbol, " ", pack . show $ percent, "% ", time])

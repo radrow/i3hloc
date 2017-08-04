@@ -1,35 +1,48 @@
 module Colors where
 
-import Data.Char
+import Data.Text as T
+import Text.Regex.Posix
 
-type ColorHex = String
+type ColorHex = Text
 
 newtype Color = Color ColorHex
 instance Show Color where
-  show c = let Color s = c in s
+  show c = let Color s = c in unpack s
+
 instance Eq Color where
-  (==) (Color a) (Color b) = map toLower a == map toLower b
+  (==) (Color a) (Color b) = T.toLower a == T.toLower b
 
 validateColor :: Color -> Maybe Color
-validateColor (Color c) | length c /= 7 = Nothing
-                        | head c /= '#' = Nothing
-                        | foldl (\b char -> b ||
-                                  notElem char "1234567890abcdef")
-                                False (tail c) = Nothing
-                        | otherwise = Just (Color c)
+validateColor (Color c) = if unpack c =~ ("#(([0-9]|[a-f]){6})" :: String) then Just . Color $ c else Nothing
 
 light :: Color -> Color
 light (Color c) = Color s where
-  s = map (\x -> if x `elem` "012345678abcde" then succ x
+  s = T.map (\x -> if x `elem` ("012345678abcde" :: String) then succ x
                 else if x == '9' then 'a'
                 else x) c
 
 dark :: Color -> Color
 dark (Color c) = Color s where
-  s = map (\x -> if x `elem` "123456789bcdef" then pred x
+  s = T.map (\x -> if x `elem` ("123456789bcdef" :: String) then pred x
                 else if x == 'a' then '9'
                 else x) c
 
+makeColor :: String -> Maybe Color
+makeColor s = case s of
+  "black" -> Just black
+  "white" -> Just white
+  "red" -> Just red
+  "green" -> Just green
+  "blue" -> Just blue
+  "yellow" -> Just yellow
+  "cyan" -> Just cyan
+  "magenta" -> Just magenta
+  "orange" -> Just orange
+  "purple" -> Just purple
+  "pink" -> Just pink
+  "lightGray" -> Just lightGray
+  "darkGray" -> Just darkGray
+  _ -> validateColor $ Color $ pack s
 
 black :: Color
 white :: Color

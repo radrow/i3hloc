@@ -1,45 +1,77 @@
-module Block where
+module Block( staticText
+            , makeBlock
+            , blockToJson
+            , Block( underline
+                   , color
+                   , bgColor
+                   , prefix
+                   , suffix
+                   , displayText
+                   )
+            , errorBlock
+            , getDisplayedText
+            ) where
 
 import Control.Exception
 
 import Colors
-import Pango
+import Pango hiding (Error)
+import DisplayText
+
+import qualified Data.Text as T
+import Data.Text(Text, pack)
 
 data Block = Block
   { color :: Color
   , bgColor :: Maybe Color
-  , fullText :: IO String
-  , prefix :: String
-  , suffix :: String
+  , displayText :: DisplayText
+  , prefix :: Text
+  , suffix :: Text
   , underline :: UnderlineMode
   }
 
 staticText :: String -> IO String
 staticText = return
 
-newBlock = Block { color = Colors.white
-                , bgColor = Nothing
-                , prefix = ""
-                , suffix = ""
-                , underline = None
-                }
+newBlock :: Block
+newBlock = Block { displayText = undefined
+                 , color = Colors.white
+                 , bgColor = Nothing
+                 , prefix = ""
+                 , suffix = ""
+                 , underline = None
+                 }
 
-handleBlockException :: SomeException -> IO String
+makeBlock :: DisplayText -> Block
+makeBlock d = newBlock{displayText = d}
+
+getDisplayedText :: Block -> IO Text
+getDisplayedText b =
+  let (DisplayText d) = displayText b in d
+
+
+errorBlock :: String -> Block
+errorBlock errorText = newBlock
+  { displayText = display $ staticText errorText
+  , color = red
+  , prefix = "["
+  , suffix = "]"
+  }
+
+handleBlockException :: SomeException -> IO Text
 handleBlockException _ = return errMsg where
-  errMsg = spanSurround "color" "red" "(BLOCK ERROR)"
+  errMsg = spanSurround "color" "red" "[BLOCK ERROR]"
 
-forceBlockEvaluation :: IO String -> IO String
-forceBlockEvaluation bmonad = do
-  b <- bmonad
-  evaluate b
+forceBlockEvaluation :: IO Text -> IO Text
+forceBlockEvaluation = (>>= evaluate)
 
-blockToJson :: Block -> IO String
+blockToJson :: Block -> IO Text
 blockToJson b = do
-  t <- forceBlockEvaluation (fullText b) `catch` handleBlockException
+  t <- forceBlockEvaluation (getDisplayedText b) -- `catch` handleBlockException
   return $ surroundBrackets . fixQuotes . apply $ t where
-    surroundBrackets t = "{\"markup\":\"pango\", \"full_text\":\"" ++ t ++ "\"}"
-    fixQuotes :: String -> String
-    fixQuotes = reverse . fix [] where
+    surroundBrackets t = T.concat ["{\"markup\":\"pango\", \"full_text\":\"", t, "\"}"]
+    fixQuotes :: Text -> Text
+    fixQuotes = T.reverse . pack . fix "" . T.unpack where
       fix :: String -> String -> String
       fix acc s = case s of
         [] -> acc
@@ -47,22 +79,21 @@ blockToJson b = do
         '\\':t -> fix acc t
         h:t -> fix (h:acc) t
 
-    apply :: String -> String
+    apply :: Text -> Text
     apply = foldl (flip (.)) id mods
-    mods :: [String -> String]
+    mods :: [Text -> Text]
     mods = [ applyPrefix
            , applySuffix
            , applyUnderline
            , applyBgColor
            , applyColor
            ]
-    applyPrefix =  (prefix b ++)
-    applySuffix = (++ suffix b)
+    applyPrefix = (prefix b `T.append`)
+    applySuffix = (`T.append` suffix b)
     applyUnderline = case underline b of
       None -> id
-      u -> spanSurround "underline" (show u)
+      u -> spanSurround "underline" (pack . show $ u)
     applyBgColor = case bgColor b of
       Nothing -> id
-      Just c -> spanSurround "bgcolor" (show c)
-    applyColor = spanSurround "color" (show (color b))
-
+      Just c -> spanSurround "bgcolor" (pack . show $ c)
+    applyColor = spanSurround "color" (pack . show $ color b)

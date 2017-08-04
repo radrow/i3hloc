@@ -1,19 +1,19 @@
 module Pango where
 
-import Data.Char
+import Data.Text as T
 
 import Colors
 
-spanSurround :: String -> String -> String -> String
-spanSurround par val text = "<span " ++ par ++ "='" ++ val ++ "'>" ++ text ++ "</span>"
+spanSurround :: Text -> Text -> Text -> Text
+spanSurround par val text = T.concat ["<span ", par, "='", val, "'>", text, "</span>"]
 
-maybeSurround :: String -> Maybe String -> String -> String
+maybeSurround :: Text -> Maybe Text -> Text -> Text
 maybeSurround _ Nothing s = s
 maybeSurround par (Just val) text = spanSurround par val text
 
-colorString :: Maybe Color -> String -> String
+colorString :: Maybe Color -> Text -> Text
 colorString (Just (Color c)) s =
-  "<span color='" ++ map toUpper c ++ "'>" ++ s ++ "</span>"
+  T.concat["<span color='", T.toUpper c, "'>", s, "</span>"]
 colorString Nothing s = s
 
 data UnderlineMode = None | Single | Double | Error
@@ -23,3 +23,10 @@ instance Show UnderlineMode where
   show Double = "double"
   show Error = "error"
 
+underlineModeFromString :: String -> Maybe UnderlineMode
+underlineModeFromString s = case s of
+  "none" -> Just None
+  "single" -> Just Single
+  "double" -> Just Double
+  "error" -> Just Error
+  _ -> Nothing
