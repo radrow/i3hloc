@@ -77,7 +77,7 @@ defaultConfig = unlines
   , "float period = 2"
   , "string prefix = \"|\61931 |\""
   , ""
-  , "eth]"
+  , "[eth]"
   , "string type = bandwidth"
   , "string interface = enp7s0"
   , "float period = 2"
