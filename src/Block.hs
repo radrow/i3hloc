@@ -21,6 +21,8 @@ import DisplayText
 import qualified Data.Text as T
 import Data.Text(Text, pack)
 
+-- |Block is responsible for displaying text from selected module with
+-- |certain modifications applied
 data Block = Block
   { color :: Color
   , bgColor :: Maybe Color
@@ -30,9 +32,11 @@ data Block = Block
   , underline :: UnderlineMode
   }
 
-staticText :: String -> IO String
-staticText = return
+-- |Just displays text
+staticText :: String -> DisplayText
+staticText = display . return
 
+-- |Default Block creator with undefined displayText. It may not be exported.
 newBlock :: Block
 newBlock = Block { displayText = undefined
                  , color = Colors.white
@@ -42,32 +46,37 @@ newBlock = Block { displayText = undefined
                  , underline = None
                  }
 
+-- |Creates default block using given DisplayText
 makeBlock :: DisplayText -> Block
 makeBlock d = newBlock{displayText = d}
 
+-- |Extracts unmodified Text to be displayed from Block
 getDisplayedText :: Block -> IO Text
 getDisplayedText b =
   let (DisplayText d) = displayText b in d
 
-
+-- |Default block that displays error message
 errorBlock :: String -> Block
 errorBlock errorText = newBlock
-  { displayText = display $ staticText errorText
+  { displayText = staticText errorText
   , color = red
   , prefix = "["
   , suffix = "]"
   }
 
+-- |Used when Block throws an exception. Currently always sets text to constant string
 handleBlockException :: SomeException -> IO Text
 handleBlockException _ = return errMsg where
   errMsg = spanSurround "color" "red" "[BLOCK ERROR]"
 
-forceBlockEvaluation :: IO Text -> IO Text
-forceBlockEvaluation = (>>= evaluate)
+-- |Forces evaluation of block's displayText, to face all exceptions
+forceDisplayEvaluation :: IO Text -> IO Text
+forceDisplayEvaluation = (>>= evaluate)
 
+-- |Turns Block to displayable JSON. Executes displayText action and applies all modifiers.
 blockToJson :: Block -> IO Text
 blockToJson b = do
-  t <- forceBlockEvaluation (getDisplayedText b) `catch` handleBlockException
+  t <- forceDisplayEvaluation (getDisplayedText b) `catch` handleBlockException
   return $ surroundBrackets . fixQuotes . apply $ t where
     surroundBrackets t = T.concat ["{\"markup\":\"pango\", \"full_text\":\"", t, "\"}"]
     fixQuotes :: Text -> Text

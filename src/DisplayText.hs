@@ -5,8 +5,10 @@ module DisplayText where
 import Data.Text
 import System.Exit
 
+-- |IO Text to be displayed for Blocks
 newtype DisplayText = DisplayText (IO Text)
 
+-- |Allows modules to return some different types instead of IO Text
 class Display a where
   display :: IO a -> DisplayText
 

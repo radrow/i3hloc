@@ -5,18 +5,21 @@ module Hloc(
   ) where
 
 import qualified Data.Text as T
-import Data.Text(Text, pack, unpack)
+import Data.Text(Text)
 import Control.Monad
 
 import Block
+import Config
 
 version :: Text
-version = "1"
+version = "1.1"
 
+-- |Init text for i3bar configuration
 jsonInit :: Text
 jsonInit = T.concat ["{\"version\":", version, ", \"click_events\":true} ["]
 
-getBarText :: [Block] -> IO Text
+-- |Turns Config into JSON list of parsed and executed blocks
+getBarText :: Config -> IO Text
 getBarText blocks = let
   jsons :: [IO Text]
   jsons = map blockToJson blocks

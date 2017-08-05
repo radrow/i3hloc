@@ -7,7 +7,7 @@ import Data.List(find)
 import Data.Map.Strict(Map, lookup)
 import Data.Maybe(fromJust, fromMaybe, isJust)
 import qualified Data.Map as M
-import Data.Text(pack, Text)
+import Data.Text(pack)
 import Text.Trifecta
 import Web.FontAwesomeType
 
@@ -21,15 +21,20 @@ import DisplayText
 import Colors
 import Pango
 
+-- |Comment used in rcf "language"
 comment :: String
 comment = "#"
 
+-- |Map lookup. Compiler could not import it, so made my own version
 (!?) :: Ord a => Map a b -> a -> Maybe b
 (!?) = flip Data.Map.Strict.lookup
 
 -- types
+-- |Header of section
 newtype Header = Header String
+-- |Name of field
 type Name = String
+-- |Packed types used in rcf file
 data HType = AInt Integer
            | AFloat Double
            | AString String
@@ -37,7 +42,9 @@ data HType = AInt Integer
            | AChar Char
            | AList [HType]
            deriving (Eq, Show)
+-- |Map from names to values
 type AssignmentsMap = Map String HType
+-- |Section similar to those known from .ini files - contains header and fields
 data BlockSection = Section Header AssignmentsMap
 
 -- types extraction
@@ -50,26 +57,32 @@ hTypeToString h = case h of
   AChar c -> [c]
   AList l -> show (map hTypeToString l)
 
+-- |Unpacks value assuming it's an Integer
 getInteger :: HType -> Maybe Integer
 getInteger (AInt i) = Just i
 getInteger _ = Nothing
 
+-- |Unpacks value assuming it's a Double
 getDouble :: HType -> Maybe Double
 getDouble (AFloat d) = Just d
 getDouble _ = Nothing
 
+-- |Unpacks value assuming it's a Char
 getChar :: HType -> Maybe Char
 getChar (AChar i) = Just i
 getChar _ = Nothing
 
+-- |Unpacks value assuming it's a Bool
 getBool :: HType -> Maybe Bool
 getBool (ABool b) = Just b
 getBool _ = Nothing
 
+-- |Unpacks value assuming it's a String
 getString :: HType -> Maybe String
 getString (AString s) = Just s
 getString _ = Nothing
 
+-- |Unpacks value assuming it's a list
 getList :: HType -> Maybe [HType]
 getList (AList l) = Just l
 getList _ = Nothing
@@ -89,16 +102,20 @@ skipBreaks :: Parser ()
 skipBreaks = skipWhitespaces >> skipComments >> skipWhitespaces
 
 -- misc
+-- |Parses string that is surrounded by some other strings
 surrounded :: String -> String -> Parser a -> Parser a
 surrounded b e p = string b *> p <* string e
 
 -- parsing
+-- |Parses int
 parseAInt :: Parser HType
 parseAInt = AInt <$> integer
 
+-- |Parses float
 parseAFloat :: Parser HType
 parseAFloat = AFloat <$> ((fromInteger <$> integer) <|> double)
 
+-- |Parses bool
 parseABool :: Parser HType
 parseABool = ABool <$> do
   b <- map toLower
@@ -108,15 +125,19 @@ parseABool = ABool <$> do
     <|> string "False"
   return $ b == "true"
 
+-- |Parses string. As default surround uses "| |"
 parseAString :: Parser HType
 parseAString = AString <$> (surrounded "\"|" "" (manyTill anyChar (string "|\"")) <|> some (noneOf "\n"))
 
+-- |Parses char
 parseAChar :: Parser HType
 parseAChar = AChar <$> surrounded "'" "'" anyChar
 
+-- |Parses header
 parseHeader :: Parser Header
 parseHeader = surrounded "[" "]" (Header <$> some letter)
 
+-- |Parses list of some expressions
 parseList :: Parser a -> Parser [a]
 parseList p = do
   _ <- char '{'
@@ -131,6 +152,7 @@ parseList p = do
                parse (e:acc)
     reverse <$> parse [elm]
 
+-- |Returns adequate parser by type name
 hTypeParserFromString :: String -> Parser HType
 hTypeParserFromString s = case s of
   "string" -> parseAString
@@ -141,6 +163,7 @@ hTypeParserFromString s = case s of
   'l':'i':'s':'t':':':k -> AList <$> parseList (hTypeParserFromString k)
   _ -> fail "Unknown type"
 
+-- |Parses variable assignment
 parseAssignment :: Parser (Name, HType)
 parseAssignment = do
   let parse :: Parser (String, HType)
@@ -155,6 +178,7 @@ parseAssignment = do
   skipEOL
   return (name, val)
 
+-- |Parses whole section
 parseBlockSection :: Parser BlockSection
 parseBlockSection = do
   skipBreaks
@@ -163,6 +187,7 @@ parseBlockSection = do
   assignments <- some parseAssignment
   return $ Section h (M.fromList assignments)
 
+-- |Converts parsed section to working block. Returns errorBlock on fail
 sectionToBlock :: BlockSection -> Block
 sectionToBlock (Section _ assg) =
   let mdisplayType = assg !? "type"
@@ -208,9 +233,10 @@ sectionToBlock (Section _ assg) =
               _ -> put b
           get
 
+-- |Type used for error handling
 type ErrMsg = String
 
--- Creates DisplayText of certain type using given values
+-- |Creates DisplayText of certain type using given values
 createBlockDisplayText :: String -> AssignmentsMap -> Either ErrMsg DisplayText
 createBlockDisplayText name fields =
   let getValue :: String -> Either ErrMsg HType
@@ -272,7 +298,7 @@ createBlockDisplayText name fields =
 
     _ -> Left $ "Unknown block kind: '" ++ name ++ "'"
 
-
+-- |Parses whole configuration file
 parseConfigFile :: Parser [Block]
 parseConfigFile = do
   skipBreaks

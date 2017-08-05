@@ -15,26 +15,31 @@ import Config
 import Parsing.ConfigParser
 
 -- period over 1 milion with current time display is reasonless
+-- |Period between updates
 period :: Integer
 period = 1000000
 
+-- |How many copies of data should be printed in one loop
 repeats :: Int
 repeats = 20
 
+-- |Function used for repetition of IO action
 for :: Int -> IO a -> IO ()
 for i f = unless (i == 0) $
           f >> for (i-1) f
 
-defaultConfigLoc :: IO FilePath
-defaultConfigLoc = (++"/.config/i3hloc/config.rcf") <$> getHomeDirectory
+-- |Place where config is stored by default
+defaultConfigPath :: IO FilePath
+defaultConfigPath = (++"/.config/i3hloc/config.rcf") <$> getHomeDirectory
 
+-- |Program configuration from arguments
 data ArgsData = ArgsData { configFile :: String
                          , printDefaultConfig :: Bool
                          , printHelp :: Bool
                          , installConfig :: Bool
                          , useDefaultConfig :: Bool
                          }
-
+-- |Empty configuration
 newArgsData :: ArgsData
 newArgsData = ArgsData { configFile = undefined
                        , printHelp = False
@@ -43,10 +48,12 @@ newArgsData = ArgsData { configFile = undefined
                        , useDefaultConfig = False
                        }
 
+-- |Default configuration - has to be IO because of homedir
 getDefaultArgsData :: IO ArgsData
-getDefaultArgsData = defaultConfigLoc >>= \loc ->
+getDefaultArgsData = defaultConfigPath >>= \loc ->
   return newArgsData {configFile = loc}
 
+-- |Applies arguments list to accumulated ArgsData
 updateArgsData :: [String] -> ArgsData -> ArgsData
 updateArgsData l acc =
   case l of
@@ -59,6 +66,7 @@ updateArgsData l acc =
     "-d":t -> updateArgsData t acc {useDefaultConfig = True}
     _ -> newArgsData {printHelp = True}
 
+-- |Help to be printed on -h flag
 help :: String
 help = unlines
   [ "i3hloc - streamer of JSON data for i3bar"
@@ -71,6 +79,7 @@ help = unlines
   , "-d uses default configuration"
   ]
 
+-- |Default configuration file
 defaultConfig :: String
 defaultConfig = unlines
   [ "# This is example config file. Some variables are unset you may add them yourself."
@@ -134,6 +143,7 @@ defaultConfig = unlines
   , "string prefix = \61463"
   ]
 
+-- |Main loop of program. Runs i3hloc with selected Config
 loopWithConfig :: Config -> IO()
 loopWithConfig conf = do
   TIO.putStrLn jsonInit
@@ -146,7 +156,7 @@ loopWithConfig conf = do
     let deltaTime = max (postTime - preTime) 10
     threadDelay . fromIntegral $ (period - deltaTime)
 
-
+-- |Reads config file as string or fails
 getConfigString :: ArgsData -> IO (Either String String)
 getConfigString args = if useDefaultConfig args then return $ Right defaultConfig
   else do
@@ -155,7 +165,7 @@ getConfigString args = if useDefaultConfig args then return $ Right defaultConfi
       then return $ Left "Selected config file does not exist. Generate new using \"--printDefaultConfig\" flag."
       else Right <$> readFile (configFile args)
 
-
+-- |Installs used config string in selected file
 installConfigInDir :: String -> FilePath -> IO ()
 installConfigInDir confString fp = do
   let dir = reverse . dropWhile (/= '/') . reverse $ fp
