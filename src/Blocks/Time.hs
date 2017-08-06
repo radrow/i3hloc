@@ -33,7 +33,7 @@ extractSeq s t =
   let timeOfDay = localTimeOfDay t
       dateTime = dayToDateTime (localDay t)
   in case s of
-    Sec ->  twoDigit . show $ todSec timeOfDay
+    Sec ->  twoDigit . takeWhile (/= '.') . show $ todSec timeOfDay
     Minute ->  twoDigit . show $ todMin timeOfDay
     Hour24 ->  twoDigit . show $ todHour timeOfDay
     Hour12 ->  twoDigit . show $ todHour timeOfDay `mod` 12

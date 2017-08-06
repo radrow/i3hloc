@@ -17,6 +17,7 @@ import Blocks.Battery
 import Blocks.Command
 import Blocks.Volume
 import Blocks.Time
+import Config
 import DisplayText
 import Colors
 import Pango
@@ -32,6 +33,7 @@ comment = "#"
 -- types
 -- |Header of section
 newtype Header = Header String
+  deriving (Eq, Ord, Show, Read)
 -- |Name of field
 type Name = String
 -- |Packed types used in rcf file
@@ -92,14 +94,16 @@ skipEOL :: Parser ()
 skipEOL = skipMany . char $ '\n'
 
 skipComments :: Parser ()
-skipComments = skipMany $ do _ <- string comment
-                             skipMany (noneOf "\n")
-                             skipEOL
+skipComments = skipMany $ do
+  _ <- string comment
+  skipMany (noneOf "\n")
+  skipEOL
+
 skipWhitespaces :: Parser ()
 skipWhitespaces = skipMany $ char ' ' <|> char '\n'
 
 skipBreaks :: Parser ()
-skipBreaks = skipWhitespaces >> skipComments >> skipWhitespaces
+skipBreaks = skipComments >> skipWhitespaces >> skipComments
 
 -- misc
 -- |Parses string that is surrounded by some other strings
@@ -127,7 +131,7 @@ parseABool = ABool <$> do
 
 -- |Parses string. As default surround uses "| |"
 parseAString :: Parser HType
-parseAString = AString <$> (surrounded "\"|" "" (manyTill anyChar (string "|\"")) <|> some (noneOf "\n"))
+parseAString = AString <$> (surrounded "\"|" "" (manyTill anyChar (string "|\"")) <|> some (noneOf "\n,{}"))
 
 -- |Parses char
 parseAChar :: Parser HType
@@ -174,8 +178,10 @@ parseAssignment = do
         _ <- skipMany (char ' ') >> char '=' >> skipMany (char ' ')
         h <- hTypeParserFromString typename
         return (n, h)
+  skipBreaks
   (name, val) <- parse
   skipEOL
+  skipBreaks
   return (name, val)
 
 -- |Parses whole section
@@ -299,12 +305,24 @@ createBlockDisplayText name fields =
     _ -> Left $ "Unknown block kind: '" ++ name ++ "'"
 
 -- |Parses whole configuration file
-parseConfigFile :: Parser [Block]
+parseConfigFile :: Parser Config
 parseConfigFile = do
-  skipBreaks
-  blockList <- parseList (some letter)
+  (Section h as) <- parseBlockSection
+  skipComments
+  when (h /= Header "main") $ fail "Missing main section"
+  let blockListM :: Maybe [String]
+      blockListM = as !? "blocks" >>= getList >>= traverse getString
+      period = fromMaybe 1000000 (as !? "period" >>= getInteger)
+      repeats = fromMaybe 20 (as !? "repeats" >>= getInteger)
   sections <- some parseBlockSection
-  return $ flip map blockList $ \name ->
-    case find (\(Section (Header h) _) -> h == name) sections of
-      Nothing -> errorBlock $ "No such section: '" ++ name ++ "'"
-      Just s -> sectionToBlock s
+  let blockList = case blockListM of
+        Nothing -> [errorBlock "Missing block list or its types are invalid"]
+        Just l -> flip map l $ \name ->
+          case find (\(Section (Header hd) _) -> hd == name) sections of
+            Nothing -> errorBlock $ "No such section: '" ++ name ++ "'"
+            Just s -> sectionToBlock s
+  return newConfig
+    { blocks = blockList
+    , printRepeats = fromInteger repeats
+    , updatePeriod = period
+    }

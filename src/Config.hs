@@ -1,7 +1,19 @@
-module Config( Config
+module Config( Config(blocks, printRepeats, updatePeriod)
+             , newConfig
              ) where
 
 import Block
 
--- |Configuration is actually list of blocks. No more features yet
-type Config = [Block]
+-- |Main configuration type
+data Config =
+  Config { blocks :: [Block]
+         , printRepeats :: Int
+         , updatePeriod :: Integer
+         }
+
+newConfig :: Config
+newConfig = Config
+  { blocks = []
+  , printRepeats = 20 -- TODO: fix defaults
+  , updatePeriod = 1000000
+  }

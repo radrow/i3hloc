@@ -78,7 +78,10 @@ getInterfaceSpeed minimumPeriod file interface = do
     (writeFile (tmp lastStateFile) ( show currentBytes
                                      ++ "\n" ++ show currentTime
                                      ++ "\n" ++ show speedInBps))
+
+  --doesFileExist (tmp lastStateFile) >>= flip when (
   copyFile (tmp lastStateFile) lastStateFile
+   -- )
 
   let out | speedInBps > 2 * 10^(6 :: Int) = show (round (speedInBps / 10^(6 :: Int)) :: Int) ++ " MBps"
           | speedInBps > 10^(3 :: Int) = show (round (speedInBps / 10^(3 :: Int)) :: Int) ++ " kBps"

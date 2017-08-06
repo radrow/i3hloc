@@ -18,19 +18,13 @@ i3hloc is a simple data display for i3bar writeen in Haskell. It uses custom rcf
 -d - uses default configuration
 
 .SH CONFIGURATION
-i3hloc uses custom .rcf config format, which is similar to .ini with some exceptions.
-
-Format of the file looks like this:
-
-- list of displayed sections in order
-
-- one or more section. It is required that every section from list above is defined.
-
-Section consists of:
+i3hloc uses custom .rcf config format, which is similar to .ini with some exceptions. Like in typical .ini file it contains one or more sections which consist of:
 
 - a header, which stands for name of section. It is surrounded by square brackets
 
 - sequence of fields
+
+Every .rcf file must begin with main section with 'blocks' field. It is has to be string list names of displayed blocks in order.
 
 .SH TYPING
 

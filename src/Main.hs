@@ -14,15 +14,6 @@ import Hloc
 import Config
 import Parsing.ConfigParser
 
--- period over 1 milion with current time display is reasonless
--- |Period between updates
-period :: Integer
-period = 1000000
-
--- |How many copies of data should be printed in one loop
-repeats :: Int
-repeats = 20
-
 -- |Function used for repetition of IO action
 for :: Int -> IO a -> IO ()
 for i f = unless (i == 0) $
@@ -143,19 +134,6 @@ defaultConfig = unlines
   , "string prefix = \61463"
   ]
 
--- |Main loop of program. Runs i3hloc with selected Config
-loopWithConfig :: Config -> IO()
-loopWithConfig conf = do
-  TIO.putStrLn jsonInit
-  forever $ do
-    preTime <- (`div`1000) . toNanoSecs <$> getTime Monotonic
-    statusList <- getBarText conf
-    for repeats (TIO.putStrLn statusList)
-    postTime <- (`div`1000) . toNanoSecs <$> getTime Monotonic
-
-    let deltaTime = max (postTime - preTime) 10
-    threadDelay . fromIntegral $ (period - deltaTime)
-
 -- |Reads config file as string or fails
 getConfigString :: ArgsData -> IO (Either String String)
 getConfigString args = if useDefaultConfig args then return $ Right defaultConfig
@@ -172,6 +150,19 @@ installConfigInDir confString fp = do
   createDirectoryIfMissing True dir
   putStrLn $ "Installing config in " ++ dir
   writeFile fp confString
+
+-- |Main loop of program. Runs i3hloc with selected Config
+loopWithConfig :: Config -> IO()
+loopWithConfig conf = do
+  TIO.putStrLn jsonInit
+  forever $ do
+    preTime <- (`div`1000) . toNanoSecs <$> getTime Monotonic
+    statusList <- getBarText conf
+    for (printRepeats conf) (TIO.putStrLn statusList)
+    postTime <- (`div`1000) . toNanoSecs <$> getTime Monotonic
+
+    let deltaTime = max (postTime - preTime) 10
+    threadDelay . fromIntegral $ (updatePeriod conf - deltaTime)
 
 main :: IO ()
 main = do
