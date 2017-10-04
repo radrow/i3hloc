@@ -20,6 +20,7 @@ import DisplayText
 
 import qualified Data.Text as T
 import Data.Text(Text, pack)
+import System.IO(stderr, hPutStrLn)
 
 -- |Block is responsible for displaying text from selected module with
 -- |certain modifications applied
@@ -64,10 +65,12 @@ errorBlock errorText = newBlock
   , suffix = "]"
   }
 
--- |Used when Block throws an exception. Currently always sets text to constant string
+-- |Used when Block throws an exception. Prints to stderr message of exception
+-- |and returns error message
 handleBlockException :: SomeException -> IO Text
-handleBlockException _ = return errMsg where
-  errMsg = spanSurround "color" "red" "[BLOCK ERROR]"
+handleBlockException e = do
+  hPutStrLn stderr ("\n" ++ displayException e ++ "\n")
+  return errMsg where errMsg = spanSurround "color" "red" "[BLOCK ERROR (e)]"
 
 -- |Forces evaluation of block's displayText, to face all exceptions
 forceDisplayEvaluation :: IO Text -> IO Text

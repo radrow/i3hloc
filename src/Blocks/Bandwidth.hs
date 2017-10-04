@@ -13,13 +13,14 @@ import Data.Text as T
 import Pango
 import Colors
 
-data State = Dormant | Up | Down | Missing deriving (Eq, Show)
+data State = Dormant | Up | Down | Unknown | Missing deriving (Eq, Show)
 
 stateToColor :: State -> Color
 stateToColor state = case state of
                 Up -> green
                 Down -> lightGray
                 Dormant -> orange
+                Unknown -> white
                 Missing -> red
 
 parseSpeedFile :: Text -> (Integer, Integer, Double)
@@ -37,6 +38,7 @@ getInterfaceState interface = do
               "up" -> Up
               "down" -> Down
               "dormant" -> Dormant
+              "unknown" -> Unknown
               _ -> Missing
     else return Missing
 
@@ -95,13 +97,15 @@ getInterfaceFullInfo = getInterfaceFullInfoModified id
 getInterfaceFullInfoModified :: (Text -> Text) -> Double -> String -> IO Text
 getInterfaceFullInfoModified f period interface = do
   state <- getInterfaceState interface
-  up <- getInterfaceUpSpeed period interface
-  down <- getInterfaceDownSpeed period interface
-
-  let info = case state of
-               Up -> T.concat [down, "↓ ", up, "↑"]
-               Down -> "down"
-               Dormant -> "disconnected"
-               Missing -> T.concat [pack interface, " is missing!"]
+  info <- case state of
+           Up -> do
+             up <- getInterfaceUpSpeed period interface
+             down <- getInterfaceDownSpeed period interface
+             return $ T.concat [down, "↓ ", up, "↑"]
+           Down -> return "down"
+           Dormant -> return "disconnected"
+           -- Unknown -> T.concat ["? ", down, "↓ ", up, "↑", " ?"]
+           Unknown -> return "?"
+           Missing -> return $ T.concat [pack interface, " is missing!"]
 
   return $ spanSurround "color" (pack $ show . stateToColor $ state) (f info)

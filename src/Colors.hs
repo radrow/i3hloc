@@ -1,7 +1,6 @@
 module Colors where
 
 import Data.Text as T
-import Text.Regex.Posix
 
 -- |Default color format
 type ColorHex = Text
@@ -16,7 +15,11 @@ instance Eq Color where
 
 -- |Checks if color format is readable
 validateColor :: Color -> Maybe Color
-validateColor (Color c) = if unpack c =~ ("#(([0-9]|[a-f]){6})" :: String) then Just . Color $ c else Nothing
+validateColor (Color c) = case unpack c of
+  '#':t -> if Prelude.all (\cc -> cc `elem` ("1234567890abcdef" :: String)) t
+          then Just . Color $ c
+          else Nothing
+  _ -> Nothing
 
 -- |Brightens color
 light :: Color -> Color
