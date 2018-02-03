@@ -10,10 +10,15 @@ import Data.Dates( dayToDateTime
                  , dateWeekDay
                  )
 
-twoDigit :: String -> String
-twoDigit s | null s        = "00"
-           | length s == 1 = '0':s
-           | otherwise     = take 2 s
+twoDigitFront :: String -> String
+twoDigitFront s | null s        = "00"
+                | length s == 1 = '0':s
+                | otherwise     = take 2 s
+
+twoDigitBack :: String -> String
+twoDigitBack s | null s        = "00"
+               | length s == 1 = ['0', last s]
+               | otherwise     = drop (length s - 2) s
 
 data Seq = Separator String
          | Sec
@@ -33,17 +38,17 @@ extractSeq s t =
   let timeOfDay = localTimeOfDay t
       dateTime = dayToDateTime (localDay t)
   in case s of
-    Sec ->  twoDigit . takeWhile (/= '.') . show $ todSec timeOfDay
-    Minute ->  twoDigit . show $ todMin timeOfDay
-    Hour24 ->  twoDigit . show $ todHour timeOfDay
-    Hour12 ->  twoDigit . show $ todHour timeOfDay `mod` 12
+    Sec ->  twoDigitFront . takeWhile (/= '.') . show $ todSec timeOfDay
+    Minute ->  twoDigitFront . show $ todMin timeOfDay
+    Hour24 ->  twoDigitFront . show $ todHour timeOfDay
+    Hour12 ->  twoDigitFront . show $ todHour timeOfDay `mod` 12
     AmPm -> if todHour timeOfDay < 12 then "am" else "pm"
-    Day ->  twoDigit . show $ day dateTime
-    Month ->  twoDigit . show $ month dateTime
-    Year ->  twoDigit . show $ year dateTime
+    Day ->  twoDigitFront . show $ day dateTime
+    Month ->  twoDigitFront . show $ month dateTime
+    Year ->  show $ year dateTime
     WeekDayFull ->  show $ dateWeekDay dateTime
     WeekDayShort -> take 3 $ show $ dateWeekDay dateTime
-    CenturyYear -> twoDigit . show $ year dateTime `mod` 100
+    CenturyYear -> twoDigitBack . show $ year dateTime `mod` 100
     Separator se -> se
 
 readSeq :: Char -> Maybe Seq
