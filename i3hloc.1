@@ -40,7 +40,7 @@ Examples of some valid declarations:
 
 .B list:bool alist = {true, True, false,False}
 
-Strings may be defined as normal literals (the will be read until end of line). Another way is to surround text by "|  |"
+Strings may be defined as normal literals (they will be read until end of line). Another way is to surround text by "|  |"
 quotes, eg.
 
 
@@ -88,7 +88,7 @@ Every section must have string type field with one of following values:
 .B battery
 - displays battery state using acpi
 
-.B Time
+.B time
 - displays current time. Requires string format field that describes format of displayed data. You may use any signs here. First character after '%' will describe information to be displayed: s - seconds, m - minutes, h - hour in 12 format, H - hour in 24 format, d - day of month, Y - year, y - year modulo 100, W - full week day name, w - short week day name, a - am or pm. Eg.: string format =  %d-%M-%Y
 
 .SH EXAMPLES
