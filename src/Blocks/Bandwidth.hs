@@ -91,10 +91,10 @@ getInterfaceSpeed minimumPeriod file interface = do
           | otherwise = "(loading)" -- during initialisation it produces sick values
     in return $ pack out
 
-getInterfaceFullInfo :: Double -> String -> IO Text
+getInterfaceFullInfo :: Double -> String -> IO (Color, Text)
 getInterfaceFullInfo = getInterfaceFullInfoModified id
 
-getInterfaceFullInfoModified :: (Text -> Text) -> Double -> String -> IO Text
+getInterfaceFullInfoModified :: (Text -> Text) -> Double -> String -> IO (Color, Text)
 getInterfaceFullInfoModified f period interface = do
   state <- getInterfaceState interface
   info <- case state of
@@ -108,4 +108,4 @@ getInterfaceFullInfoModified f period interface = do
            Unknown -> return "?"
            Missing -> return $ T.concat [pack interface, " is missing!"]
 
-  return $ spanSurround "color" (pack $ show . stateToColor $ state) (f info)
+  return (stateToColor state, f info)

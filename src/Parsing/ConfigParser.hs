@@ -1,11 +1,14 @@
 module Parsing.ConfigParser where
 
 import Control.Applicative
-import Control.Monad.State
+import Control.Monad
+import Control.Monad.Trans
+import Control.Monad.Trans.State
 import Data.Char(toLower)
 import Data.List(find)
+import Data.Text(Text)
 import Data.Map.Strict(Map, lookup)
-import Data.Maybe(fromJust, fromMaybe, isJust)
+import Data.Maybe(fromMaybe)
 import qualified Data.Map as M
 import Data.Text(pack)
 import Text.Trifecta
@@ -202,48 +205,64 @@ sectionToBlock (Section _ assg) =
       mprefix = assg !? "prefix"
       msuffix = assg !? "suffix"
       munderline = assg !? "underline"
-      maybeDo :: Applicative f => Maybe a -> f () -> f()
-      maybeDo k = when $ isJust k
-  in case mdisplayType >>= getString of
-      Nothing -> errorBlock "Missing string \"type\" field"
-      Just dtname -> case createBlockDisplayText dtname assg of
-        Left e -> errorBlock e
-        Right dt -> flip execState (makeBlock dt) $ do
-          maybeDo mcolor $ do
-            let col = fromJust mcolor
-            b <- get
-            case col of
-              AString s -> put $ b {color = fromMaybe pink (makeColor s)}
-              _ -> put b
-          maybeDo mbgColor $ do
-            let bgcol = fromJust mbgColor
-            b <- get
-            case bgcol of
-              AString s -> put $ b {bgColor = makeColor s}
-              _ -> put b
-          maybeDo mprefix $ do
-            let pref = fromJust mprefix
-            b <- get
-            put $ b {prefix = pack $ hTypeToString pref}
-          maybeDo msuffix $ do
-            let suf = fromJust msuffix
-            b <- get
-            put $ b {suffix = pack $ hTypeToString suf}
-          maybeDo munderline $ do
-            let und = fromJust munderline
-            b <- get
-            case und of
-              AString s -> let us = underlineModeFromString s
-                in case us of Just uss -> put $ b {underline = uss}
-                              Nothing -> put b
-              _ -> put b
-          get
+      mmaxChars = assg !? "maxChars"
+      mminChars = assg !? "minChars"
+
+      liftMaybe :: (MonadTrans t) => e -> Maybe a -> t (Either e) a
+      liftMaybe e m = lift $ case m of
+        Just x -> Right x
+        Nothing -> Left e
+
+      whenExists :: Monad m => Maybe a -> (a -> m ()) -> m ()
+      whenExists m f =
+        case m of
+          Nothing -> return ()
+          Just val -> f val
+
+  in case flip execStateT (makeBlock $ return $ display ("Init" :: Text)) $ do
+    dtName <- liftMaybe "Missing string \"type\" field" $ mdisplayType >>= getString
+    dt <- lift $ createBlockDisplayText dtName assg
+
+    put $ makeBlock dt
+
+    whenExists mcolor $ \color_ -> do
+      s <- liftMaybe "Color must be string" $ getString color_
+      c <- liftMaybe ("Bad color format: " ++ s) $ makeColor s
+      modify $ \b -> b{color = c}
+
+    whenExists mbgColor $ \bgColor_ -> do
+      s <- liftMaybe "Bg color must be string" $ getString bgColor_
+      c <- liftMaybe ("Bad bgcolor format: " ++ s) $ makeColor s
+      modify $ \b -> b{bgColor = Just c}
+
+    whenExists mprefix $ \prefix_ ->
+      modify $ \b -> b{prefix = pack $ hTypeToString prefix_}
+
+    whenExists msuffix $ \suffix_ ->
+      modify $ \b -> b{suffix = pack $ hTypeToString suffix_}
+
+    whenExists munderline $ \underline_ -> do
+      s <- liftMaybe "Underline mode must be string" $ getString underline_
+      u <- liftMaybe ("Bad underline name: " ++ s) $ underlineModeFromString s
+      modify $ \b -> b {underline = u}
+
+    whenExists mmaxChars $ \mc -> do
+      m <- liftMaybe "Max chars must be an int" $ getInteger mc
+      when (m < 0) $ lift (Left "Max chars cannot be negative")
+      modify $ \b -> b{maxChars = Just m}
+
+    whenExists mminChars $ \mc -> do
+      m <- liftMaybe "Min chars must be an int" $ getInteger mc
+      when (m < 0) $ lift (Left "Min chars cannot be negative")
+      modify $ \b -> b{minChars = Just m}
+  of Right b -> b
+     Left e -> errorBlock e
 
 -- |Type used for error handling
 type ErrMsg = String
 
 -- |Creates DisplayText of certain type using given values
-createBlockDisplayText :: String -> AssignmentsMap -> Either ErrMsg DisplayText
+createBlockDisplayText :: String -> AssignmentsMap -> Either ErrMsg (IO DisplayText)
 createBlockDisplayText name fields =
   let getValue :: String -> Either ErrMsg HType
       getValue s = case fields !? s of
@@ -252,17 +271,21 @@ createBlockDisplayText name fields =
       explainMaybe :: String -> Maybe a -> Either ErrMsg a
       explainMaybe _ (Just a) = Right a
       explainMaybe e Nothing = Left e
-      result :: Display d => IO d -> Either ErrMsg DisplayText
-      result = return . display
+
+      result :: Display d => IO d -> Either ErrMsg (IO DisplayText)
+      result = Right . fmap display
   in case name of
     "bandwidth" -> do
       interfacePacked <- getValue "interface"
       periodPacked <- getValue "period"
       interface <- explainMaybe "Invalid type for interface" $ getString interfacePacked
       period <- explainMaybe "Invalid type for period" $ getDouble periodPacked
-      result $ getInterfaceFullInfo period interface
+      return $ getInterfaceFullInfo period interface >>= \(c, t) ->
+        return $ DisplayText t (spanSurround "color" (pack $ show c))
 
-    "battery" -> result getBatteryState
+    "battery" -> return $ getBatteryState >>= \(c, bc, t) ->
+        return $ DisplayText t (spanSurround "color" (pack $ show c)
+                                . fromMaybe id (spanSurround "bgcolor" . (pack . show) <$> bc))
 
     "time" -> do
       formatP <- getValue "format"

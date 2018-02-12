@@ -33,7 +33,8 @@ executable i3hloc
                        raw-strings-qq >= 1.1,
                        mtl >= 2.2,
                        time >= 1.6,
-                       dates
+                       dates,
+                       transformers >= 0.5
 
   other-modules:       Blocks.Bandwidth
                        Blocks.Battery

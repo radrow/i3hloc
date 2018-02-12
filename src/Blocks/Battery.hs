@@ -53,7 +53,7 @@ getBgColorByPercent p = if p > 6 then Nothing
 parsePercent :: Text -> Int
 parsePercent = read . takeWhile (/='%') . unpack
 
-getBatteryState :: IO Text
+getBatteryState :: IO (Color, Maybe Color, Text)
 getBatteryState = do
   acpi <- acpiOutput
   let parsed = tail . T.splitOn " " . T.filter (/=',') $ acpi
@@ -69,9 +69,4 @@ getBatteryState = do
       bgColor = getBgColorByPercent percent
       symbol = stateToSymbol state percent
 
-      maybeShow (Just c) = Just (show c)
-      maybeShow Nothing = Nothing
-      pangoSurround = maybeSurround "bgcolor" (pack <$> maybeShow bgColor)
-                      . spanSurround "color" (pack . show $ color)
-
-  return $ pangoSurround (T.concat [symbol, " ", pack . show $ percent, "% ", time])
+  return $ (color, bgColor, T.concat [symbol, " ", pack . show $ percent, "% ", time])
