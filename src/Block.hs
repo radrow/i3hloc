@@ -114,7 +114,11 @@ blockToJson b = do
       applyMin = case minChars b of
         Nothing -> id
         Just x -> let fillTo :: Int -> Text -> Text
-                      fillTo n t = T.concat [t, pack . take (n - T.length t) $ repeat ' ']
+                      fillTo n t = T.concat
+                        [ pack . take ((n - T.length t) `div` 2) $ repeat ' '
+                        , t
+                        , pack . take (uncurry (+) ((n - T.length t) `divMod` 2)) $ repeat ' '
+                        ]
                   in fillTo (fromInteger x)
 
 
