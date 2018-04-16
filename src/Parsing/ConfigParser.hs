@@ -205,8 +205,7 @@ sectionToBlock (Section _ assg) =
       mprefix = assg !? "prefix"
       msuffix = assg !? "suffix"
       munderline = assg !? "underline"
-      mmaxChars = assg !? "maxChars"
-      mminChars = assg !? "minChars"
+      mminWidth = assg !? "minWidth"
 
       liftMaybe :: (MonadTrans t) => e -> Maybe a -> t (Either e) a
       liftMaybe e m = lift $ case m of
@@ -221,14 +220,12 @@ sectionToBlock (Section _ assg) =
 
   in case flip execStateT (makeBlock $ return $ display ("Init" :: Text)) $ do
     dtName <- liftMaybe "Missing string \"type\" field" $ mdisplayType >>= getString
-    dt <- lift $ createBlockDisplayText dtName assg
-
-    put $ makeBlock dt
+    put =<< lift (createBlockByType dtName assg)
 
     whenExists mcolor $ \color_ -> do
       s <- liftMaybe "Color must be string" $ getString color_
       c <- liftMaybe ("Bad color format: " ++ s) $ makeColor s
-      modify $ \b -> b{color = c}
+      modify $ \b -> b{color = Just c}
 
     whenExists mbgColor $ \bgColor_ -> do
       s <- liftMaybe "Bg color must be string" $ getString bgColor_
@@ -246,24 +243,19 @@ sectionToBlock (Section _ assg) =
       u <- liftMaybe ("Bad underline name: " ++ s) $ underlineModeFromString s
       modify $ \b -> b {underline = u}
 
-    whenExists mmaxChars $ \mc -> do
-      m <- liftMaybe "Max chars must be an int" $ getInteger mc
-      when (m < 0) $ lift (Left "Max chars cannot be negative")
-      modify $ \b -> b{maxChars = Just m}
-
-    whenExists mminChars $ \mc -> do
-      m <- liftMaybe "Min chars must be an int" $ getInteger mc
-      when (m < 0) $ lift (Left "Min chars cannot be negative")
-      modify $ \b -> b{minChars = Just m}
+    whenExists mminWidth $ \mw -> do
+      m <- liftMaybe "Min width must be an int" $ getInteger mw
+      when (m < 0) $ lift (Left "Min width cannot be negative")
+      modify $ \b -> b{minWidth = Just m}
   of Right b -> b
      Left e -> errorBlock e
 
 -- |Type used for error handling
 type ErrMsg = String
 
--- |Creates DisplayText of certain type using given values
-createBlockDisplayText :: String -> AssignmentsMap -> Either ErrMsg (IO DisplayText)
-createBlockDisplayText name fields =
+-- |Creates block with default values from type name
+createBlockByType :: String -> AssignmentsMap -> Either ErrMsg (Block)
+createBlockByType typename fields =
   let getValue :: String -> Either ErrMsg HType
       getValue s = case fields !? s of
         Just ss -> Right ss
@@ -272,20 +264,20 @@ createBlockDisplayText name fields =
       explainMaybe _ (Just a) = Right a
       explainMaybe e Nothing = Left e
 
-      result :: Display d => IO d -> Either ErrMsg (IO DisplayText)
-      result = Right . fmap display
-  in case name of
+      result :: Display d => IO d -> Either ErrMsg (Block)
+      result = Right . makeBlock . fmap display
+  in case typename of
     "bandwidth" -> do
       interfacePacked <- getValue "interface"
       periodPacked <- getValue "period"
       interface <- explainMaybe "Invalid type for interface" $ getString interfacePacked
       period <- explainMaybe "Invalid type for period" $ getDouble periodPacked
-      return $ getInterfaceFullInfo period interface >>= \(c, t) ->
-        return $ DisplayText t (spanSurround "color" (pack $ show c))
+      result $ getInterfaceFullInfo period interface >>= \(c, t) ->
+        return $ (spanSurround "color" (pack $ show c) t) -- a little hack
 
-    "battery" -> return $ getBatteryState >>= \(c, bc, t) ->
-        return $ DisplayText t (spanSurround "color" (pack $ show c)
-                                . fromMaybe id (spanSurround "bgcolor" . (pack . show) <$> bc))
+    "battery" -> result $ getBatteryState >>= \(c, bc, t) ->
+        return $ (spanSurround "color" (pack $ show c)
+                                . fromMaybe id (spanSurround "bgcolor" . (pack . show) <$> bc) $ t)
 
     "time" -> do
       formatP <- getValue "format"
@@ -325,7 +317,7 @@ createBlockDisplayText name fields =
             where fa = fontAwesomeChar
       return out
 
-    _ -> Left $ "Unknown block kind: '" ++ name ++ "'"
+    _ -> Left $ "Unknown block kind: '" ++ typename ++ "'"
 
 -- |Parses whole configuration file
 parseConfigFile :: Parser Config

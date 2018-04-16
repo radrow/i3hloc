@@ -6,8 +6,7 @@ module Block( makeBlock
                    , prefix
                    , suffix
                    , displayText
-                   , maxChars
-                   , minChars
+                   , minWidth
                    )
             , errorBlock
             ) where
@@ -18,6 +17,9 @@ import Colors
 import Pango hiding (Error)
 import DisplayText
 
+import Control.Monad.Trans.Writer.Strict
+import Control.Monad.Trans(lift)
+import Data.Maybe
 import qualified Data.Text as T
 import Data.Text(Text, pack)
 import System.IO(stderr, hPutStrLn)
@@ -25,26 +27,24 @@ import System.IO(stderr, hPutStrLn)
 -- |Block is responsible for displaying text from selected module with
 -- |certain modifications applied
 data Block = Block
-  { color :: Color
+  { color :: Maybe Color
   , bgColor :: Maybe Color
   , displayText :: IO DisplayText
   , prefix :: Text
   , suffix :: Text
   , underline :: UnderlineMode
-  , maxChars :: Maybe Integer
-  , minChars :: Maybe Integer
+  , minWidth :: Maybe Integer
   }
 
 -- |Default Block creator with undefined displayText. It may not be exported.
 newBlock :: Block
 newBlock = Block { displayText = undefined
-                 , color = Colors.white
+                 , color = Nothing
                  , bgColor = Nothing
                  , prefix = ""
                  , suffix = ""
                  , underline = None
-                 , maxChars = Nothing
-                 , minChars = Nothing
+                 , minWidth = Nothing
                  }
 
 -- |Creates default block using given DisplayText
@@ -55,7 +55,7 @@ makeBlock d = newBlock{displayText = d}
 errorBlock :: String -> Block
 errorBlock errorText = newBlock
   { displayText = return $ display errorText
-  , color = red
+  , color = Just red
   , prefix = "["
   , suffix = "]"
   }
@@ -73,11 +73,26 @@ forceDisplayEvaluation = (>>= evaluate)
 
 -- |Turns Block to displayable JSON. Executes displayText action and applies all modifiers.
 blockToJson :: Block -> IO Text
-blockToJson b = do
-  (DisplayText t modifier) <- forceDisplayEvaluation (displayText b) `catch` handleBlockException
+blockToJson b = execWriterT $ do
+  tell "{"
 
-  let surroundBrackets t = T.concat ["{\"markup\":\"pango\", \"full_text\":\"", t, "\"}"]
-      fixQuotes :: Text -> Text
+  let param a b = T.concat ["\"", a, "\":", b]
+      param' a b = param a b `T.append` ","
+
+      quote t = T.concat ["\"", t, "\""]
+
+  tell $ param' "markup" (quote "pango")
+  case color b of
+    Nothing -> return ()
+    Just (Color t) -> tell $ param' "color" (quote t)
+  case bgColor b of
+    Nothing -> return ()
+    Just (Color t) -> tell $ param' "background" (quote t)
+  case minWidth b of
+    Nothing -> return ()
+    Just i -> tell $ param' "min_width" (pack $ show i)
+
+  let fixQuotes :: Text -> Text
       fixQuotes = T.reverse . pack . fix "" . T.unpack where
         fix :: String -> String -> String
         fix acc s = case s of
@@ -90,37 +105,19 @@ blockToJson b = do
       apply = foldl (flip (.)) id mods
       mods :: [Text -> Text]
       mods = [ id
-             , applyMin
-             , applyMax
-             , modifier
              , applyPrefix
              , applySuffix
              , applyUnderline
-             , applyBgColor
-             , applyColor
              ]
       applyPrefix = (prefix b `T.append`)
       applySuffix = (`T.append` suffix b)
       applyUnderline = case underline b of
         None -> id
         u -> spanSurround "underline" (pack . show $ u)
-      applyBgColor = case bgColor b of
-        Nothing -> id
-        Just c -> spanSurround "bgcolor" (pack . show $ c)
-      applyColor = spanSurround "color" (pack . show $ color b)
-      applyMax = case maxChars b of
-        Nothing -> id
-        Just x -> T.take (fromInteger x)
-      applyMin = case minChars b of
-        Nothing -> id
-        Just x -> let fillTo :: Int -> Text -> Text
-                      fillTo n t = T.concat
-                        [ pack . take ((n - T.length t) `div` 2) $ repeat ' '
-                        , t
-                        , pack . take (uncurry (+) ((n - T.length t) `divMod` 2)) $ repeat ' '
-                        ]
-                  in fillTo (fromInteger x)
 
+  (DisplayText t) <- lift $ forceDisplayEvaluation (displayText b) `catch` handleBlockException
 
-  return $ surroundBrackets . fixQuotes . apply $ t where
+  tell $ param "full_text" $ (quote . fixQuotes . apply) t
+  tell "}"
+
 

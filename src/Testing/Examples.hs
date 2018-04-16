@@ -40,5 +40,5 @@ fixx :: Result [Block] -> [Block]
 fixx (Success s) = s
 fixx (Failure f) = [errorBlock (show f)]
 
-ios :: IO String
-ios = Prelude.head . Prelude.map (unpack<$>) . Prelude.map blockToJson . fixx $ parseString parseConfigFile mempty (unpack exampleConfig)
+-- ios :: IO String
+-- ios = Prelude.head . Prelude.map (unpack<$>) . Prelude.map blockToJson . fixx $ parseString parseConfigFile mempty (unpack exampleConfig)
