@@ -82,6 +82,7 @@ blockToJson b = execWriterT $ do
       quote t = T.concat ["\"", t, "\""]
 
   tell $ param' "markup" (quote "pango")
+  tell $ param' "align" (quote "center")
   case color b of
     Nothing -> return ()
     Just (Color t) -> tell $ param' "color" (quote t)

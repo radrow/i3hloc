@@ -1,3 +1,4 @@
+{-#LANGUAGE ScopedTypeVariables#-}
 module Blocks.Bandwidth( getInterfaceUpSpeed
                        , getInterfaceDownSpeed
                        , getInterfaceState
@@ -6,7 +7,9 @@ module Blocks.Bandwidth( getInterfaceUpSpeed
                        ) where
 
 import Control.Monad
+import Control.Exception
 import System.Directory
+import System.IO
 import System.Clock
 import Data.Text as T
 
@@ -53,43 +56,39 @@ getInterfaceSpeed minimumPeriod file interface = do
   -- creating directory in /dev/shm
   createDirectoryIfMissing True ("/dev/shm/" ++ interface)
 
-  -- path to managed file, path to readed file, temporary maker
+  -- path to managed file, path to read file
   let lastStateFile = Prelude.concat ["/dev/shm/", interface, "/", file]
       currentStateFile = Prelude.concat ["/sys/class/net/", interface, "/statistics/", file]
-      tmp = (++".tmp")
 
-  tempFileExists <- doesFileExist lastStateFile
-
+  -- read current state
   currentBytes <- read <$> readFile currentStateFile
   currentTime <- toNanoSecs <$> getTime Monotonic
 
-  unless tempFileExists $
-    writeFile lastStateFile $ show currentBytes ++ "\n" ++ show currentTime ++ "\n" ++ "0"
+  (lastStateDataE :: Either IOException String) <- try $ readFile lastStateFile
+  case lastStateDataE of
+    Left _ -> do
+      writeFile lastStateFile (show currentBytes ++ "\n" ++ show currentTime ++ "\n" ++ "0")
+      return "loading"
 
-  (lastBytes, lastTime, prevSpeed) <- parseSpeedFile . pack <$>
-                                     readFile lastStateFile
+    Right lastStateData -> do
+      let (lastBytes, lastTime, prevSpeed) = parseSpeedFile . pack $ lastStateData
+          deltaBytes = fromIntegral (currentBytes - lastBytes)
+          deltaTime = fromIntegral (currentTime - lastTime) / (10^(9 :: Int))
 
-  let deltaBytes = fromIntegral (currentBytes - lastBytes)
-      deltaTime = fromIntegral (currentTime - lastTime) / (10^(9 :: Int))
+          speedInBps = if deltaTime < minimumPeriod
+                       then prevSpeed
+                       else deltaBytes / deltaTime
 
-      speedInBps = if deltaTime < minimumPeriod
-                   then prevSpeed
-                   else deltaBytes / deltaTime
+      when (deltaTime >= minimumPeriod)
+        (writeFile lastStateFile ( show currentBytes
+                                   ++ "\n" ++ show currentTime
+                                   ++ "\n" ++ show speedInBps))
 
-  when (deltaTime >= minimumPeriod)
-    (writeFile (tmp lastStateFile) ( show currentBytes
-                                     ++ "\n" ++ show currentTime
-                                     ++ "\n" ++ show speedInBps))
-
-  --doesFileExist (tmp lastStateFile) >>= flip when (
-  copyFile (tmp lastStateFile) lastStateFile
-   -- )
-
-  let out | speedInBps > 2 * 10^(6 :: Int) = show (round (speedInBps / 10^(6 :: Int)) :: Int) ++ " MBps"
-          | speedInBps > 10^(3 :: Int) = show (round (speedInBps / 10^(3 :: Int)) :: Int) ++ " kBps"
-          | speedInBps >= 0         = show (round speedInBps :: Int) ++ " Bps"
-          | otherwise = "(loading)" -- during initialisation it produces sick values
-    in return $ pack out
+      let out | speedInBps > 2 * 10^(6 :: Int) = show (round (speedInBps / 10^(6 :: Int)) :: Int) ++ " MBps"
+              | speedInBps > 10^(3 :: Int)     = show (round (speedInBps / 10^(3 :: Int)) :: Int) ++ " kBps"
+              | speedInBps >= 0                = show (round speedInBps :: Int) ++ " Bps"
+              | otherwise                      = "(loading)" -- during initialisation it produces sick values
+        in return $ pack out
 
 getInterfaceFullInfo :: Double -> String -> IO (Color, Text)
 getInterfaceFullInfo = getInterfaceFullInfoModified id
