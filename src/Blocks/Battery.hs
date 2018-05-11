@@ -1,11 +1,17 @@
-{-#LANGUAGE OverloadedStrings#-}
+{-#LANGUAGE OverloadedStrings, ScopedTypeVariables, MultiWayIf#-}
 
 module Blocks.Battery(getBatteryState) where
 
+import Data.Time.Clock.POSIX
 import Web.FontAwesomeType
 import System.Process
 import qualified Data.Text as T
+import qualified Data.Text.IO as T
 import Data.Text(pack, unpack, Text)
+import Control.Monad.Trans.Except
+import Control.Monad.Trans
+import Control.Exception
+import System.IO
 
 import Colors
 import Pango
@@ -17,7 +23,7 @@ acpiOutput :: IO Text
 acpiOutput = pack <$> readProcess "acpi" ["-b"] ""
 
 stateToSymbol :: Text -> Int -> Text
-stateToSymbol state percent = case state of
+stateToSymbol state percent = case T.filter (`notElem` [' ', '\n']) state of
   "Full" -> pack [fa FaPlug, ' ', fa FaHeart]
   "Charging" -> if percent < 95
                then pack [fa FaBolt, ' ', fa FaPlug]
@@ -31,31 +37,57 @@ stateToSymbol state percent = case state of
                         | percent > 20 = fa FaBattery1
                         | percent > 10 = fa FaBattery0
                         | otherwise = fa FaHeartbeat
-  _ -> "coś się zjebało"
+  lol -> lol
 
-getColorByPercent :: Int -> Color
-getColorByPercent p | p >= 99 = Color "#11FF11"
-                    | p > 88 = Color "#33FF11"
-                    | p > 76 = Color "#55FF11"
-                    | p > 64 = Color "#77FF11"
-                    | p > 42 = Color "#99FF11"
-                    | p > 30 = Color "#BBDD11"
-                    | p > 24 = Color "#DDBB11"
-                    | p > 12 = Color "#FF8811"
-                    | p > 8 = Color "#FF5511"
-                    | p > 6 = Color "#FF1111"
-                    | otherwise = Color "#FF2222"
+getColorByPercent :: Int -> Int -> Color
+getColorByPercent time p | p >= 99 = Color "#11FF11"
+                         | p > 88 = Color "#33FF11"
+                         | p > 76 = Color "#55FF11"
+                         | p > 64 = Color "#77FF11"
+                         | p > 42 = Color "#99FF11"
+                         | p > 30 = Color "#BBDD11"
+                         | p > 24 = Color "#DDBB11"
+                         | p > 12 = Color "#FF8811"
+                         | p > 8 = Color "#FF5511"
+                         | p > 6 = if even time then Color "#FF1111"
+                                   else black
+                         | otherwise = Color "#FF2222"
 
-getBgColorByPercent :: Int -> Maybe Color
-getBgColorByPercent p = if p > 6 then Nothing
-                        else Just Colors.black
+getBgColorByPercent :: Int -> Int -> Maybe Color
+getBgColorByPercent time p = if | p > 8 -> Nothing
+                                | p > 6 ->
+                                  if even time then Just red
+                                  else Nothing
+                                | otherwise -> Just Colors.black
 
 parsePercent :: Text -> Int
 parsePercent = read . takeWhile (/='%') . unpack
 
 getBatteryState :: IO (Color, Maybe Color, Text)
 getBatteryState = do
+  let alarmF = "/sys/class/power_supply/BAT0/alarm"
+      capacityF = "/sys/class/power_supply/BAT0/capacity"
+      statusF = "/sys/class/power_supply/BAT0/status"
+  (res :: Either IOException (Color, Maybe Color, Text)) <- runExceptT $ do
+    alarm <- (=="0") <$> ExceptT (try $ readFile alarmF)
+    capacity <- read <$> ExceptT (try $ readFile capacityF)
+    status <- ExceptT $ try $ T.readFile statusF
+    time <- liftIO $ fmap round getPOSIXTime
+    if alarm
+      then return (red, Nothing, "ALARM")
+      else return ( getColorByPercent time capacity
+                  , getBgColorByPercent time capacity
+                  , T.concat [stateToSymbol status capacity, " ", pack $ show capacity, "%"])
+  case res of
+    Left e -> do
+      hPutStrLn stderr $ show e
+      return (red, Nothing, "Incompatible files in /sys/class. Try acpi variant")
+    Right r -> return r
+
+getAcpiBatteryState :: IO (Color, Maybe Color, Text)
+getAcpiBatteryState = do
   acpi <- acpiOutput
+  realtime :: Int <- fmap round getPOSIXTime
   let parsed = tail . T.splitOn " " . T.filter (/=',') $ acpi
       state = parsed !! 1
       percent = parsePercent (parsed !! 2)
@@ -65,8 +97,9 @@ getBatteryState = do
              then "(∞:∞)"
              else parsed !! 3
 
-      color = getColorByPercent percent
-      bgColor = getBgColorByPercent percent
+      color :: Color
+      color = getColorByPercent realtime percent
+      bgColor = getBgColorByPercent realtime percent
       symbol = stateToSymbol state percent
 
   return $ (color, bgColor, T.concat [symbol, " ", pack . show $ percent, "% ", time])
