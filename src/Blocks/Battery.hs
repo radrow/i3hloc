@@ -51,14 +51,14 @@ getColorByPercent time p | p >= 99 = Color "#11FF11"
                          | p > 8 = Color "#FF5511"
                          | p > 6 = if even time then Color "#FF1111"
                                    else black
-                         | otherwise = Color "#FF2222"
+                         | otherwise = if even time then Color "#FF2222"
+                                       else black
 
 getBgColorByPercent :: Int -> Int -> Maybe Color
 getBgColorByPercent time p = if | p > 8 -> Nothing
-                                | p > 6 ->
-                                  if even time then Just red
+                                | otherwise ->
+                                  if odd time then Just red
                                   else Nothing
-                                | otherwise -> Just Colors.black
 
 parsePercent :: Text -> Int
 parsePercent = read . takeWhile (/='%') . unpack
