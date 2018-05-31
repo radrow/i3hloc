@@ -177,8 +177,8 @@ parseAssignment = do
       parse = do
         typename <- some (alphaNum <|> char ':')
         skipMany (char ' ')
-        n <- some alphaNum
-        _ <- skipMany (char ' ') >> char '=' >> skipMany (char ' ')
+        n <- some (alphaNum <|> char '_')
+        void $ skipMany (char ' ') >> char '=' >> skipMany (char ' ')
         h <- hTypeParserFromString typename
         return (n, h)
   skipBreaks
@@ -275,7 +275,12 @@ createBlockByType typename fields =
       result $ getInterfaceFullInfo period interface >>= \(c, t) ->
         return $ (spanSurround "color" (pack $ show c) t) -- a little hack
 
-    "battery" -> result $ getBatteryState >>= \(c, bc, t) ->
+    "battery" -> do
+      let batnameP = fromMaybe (AString "stdout") (fields !? "battery_name")
+          acpiP = fromMaybe (ABool False) (fields !? "acpi")
+      batname <- explainMaybe "Invalid type for battery_name" $ getString batnameP
+      acpi <- explainMaybe "Invalid type for acpi" $ getBool acpiP
+      result $ (if acpi then getAcpiBatteryState else getBatteryState batname) >>= \(c, bc, t) ->
         return $ (spanSurround "color" (pack $ show c)
                                 . fromMaybe id (spanSurround "bgcolor" . (pack . show) <$> bc) $ t)
 

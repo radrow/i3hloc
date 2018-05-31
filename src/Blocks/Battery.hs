@@ -1,6 +1,7 @@
 {-#LANGUAGE OverloadedStrings, ScopedTypeVariables, MultiWayIf#-}
 
-module Blocks.Battery(getBatteryState) where
+module Blocks.Battery( getBatteryState
+                     , getAcpiBatteryState) where
 
 import Data.Time.Clock.POSIX
 import Web.FontAwesomeType
@@ -63,11 +64,12 @@ getBgColorByPercent time p = if | p > 8 -> Nothing
 parsePercent :: Text -> Int
 parsePercent = read . takeWhile (/='%') . unpack
 
-getBatteryState :: IO (Color, Maybe Color, Text)
-getBatteryState = do
-  let alarmF = "/sys/class/power_supply/BAT0/alarm"
-      capacityF = "/sys/class/power_supply/BAT0/capacity"
-      statusF = "/sys/class/power_supply/BAT0/status"
+getBatteryState :: String -> IO (Color, Maybe Color, Text)
+getBatteryState bat = do
+  let dir = "/sys/class/power_supply/" ++ bat
+      alarmF = dir ++ "/alarm"
+      capacityF = dir ++ "/capacity"
+      statusF = dir ++ "/status"
   (res :: Either IOException (Color, Maybe Color, Text)) <- runExceptT $ do
     alarm <- (=="0") <$> ExceptT (try $ readFile alarmF)
     capacity <- read <$> ExceptT (try $ readFile capacityF)
