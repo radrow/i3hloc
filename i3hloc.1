@@ -3,9 +3,11 @@
 .SH NAME
 i3hloc - JSON data streamer for i3bar written in Haskell
 .SH SYNOPSIS
-i3hloc [ARGS]
+i3hloc [-c CONFIG_FILE | -d] [-i]
+i3hloc [--printDefaultConfig]
+i3hloc [-h]
 .SH DESCRIPTION
-i3hloc is a simple data display for i3bar writeen in Haskell. It uses custom rcf format for configuration.
+i3hloc is a simple data display for i3bar written in Haskell. It uses custom rcf format for configuration.
 .SH OPTIONS
 -h, --help - displays help
 
@@ -18,17 +20,17 @@ i3hloc is a simple data display for i3bar writeen in Haskell. It uses custom rcf
 -d - uses default configuration
 
 .SH CONFIGURATION
-i3hloc uses custom .rcf config format, which is similar to .ini with some exceptions. Like in typical .ini file it contains one or more sections which consist of:
+i3hloc uses custom rcf config format which was inspired by ini. Like in typical ini file it contains one or more sections which consist of:
 
-- a header, which stands for name of section. It is surrounded by square brackets
+- a header that stands for name of section. It is surrounded by square brackets
 
-- sequence of fields
+- sequence of field assignments
 
-Every .rcf file must begin with main section with 'blocks' field. It is has to be string list names of displayed blocks in order.
+Every .rcf file must begin with main section containing 'blocks' field. It is has to be a string list of names describing order of displayed blocks.
 
 .SH TYPING
 
-rcf is statically weak typed. It means you are forced to explicitly write type declaration for all variables, and they must match what program expects. There are 5 main types: int, float, char, bool and string, and one parametrised list type.
+rcf is statically weak typed and does not support inferention (yet). It means you are forced to explicitly write type declarations for all variables, and they have to match what program expects. There are 5 main types: int, float, char, bool and string, and one generic list type.
 
 Lists are declared using pattern
 
@@ -44,9 +46,9 @@ Strings may be defined as normal literals (they will be read until end of line).
 quotes, eg.
 
 
-string text = "| this
+.B string text = "| this
 
-is a valid string |"
+.B is a valid string |"
 
 
 Escape signs (using "\\") are currently not supported.
@@ -63,7 +65,7 @@ You may use these fields in any sections
 
 .B string color
 - color of the text.
-Color is read in 8bit format, eg.
+Color is read in 24bit format, eg.
 .B #ff44cc
 
 .B string bgcolor
@@ -74,27 +76,25 @@ Color is read in 8bit format, eg.
 .B none, single, double, error
 
 .SH "TYPE" FIELD
-Every section must have string type field with one of following values:
+Every section must contain string field with one of following values:
 
 .B command
-- for execution custom system command. It requires string command value for name of command to be executed and optional string stdin for stdin input, list:string args for program arguments and string iomode for what you want to gain: stdout, stderr, retcode (default stdout)
+- for execution custom system command. It requires string `command` value for name of command to be executed and optional string `stdin` for stdin input, list:string `args` for program arguments and string `iomode` for what you want to gain: stdout, stderr, retcode (defaults to stdout)
 
 .B volume
 - displays volume using amixer
 
 .B bandwidth
-- displays network usage for given interface (string). Requires period (float) field as period between updates.
+- displays network usage for given interface (string). Requires `period` (float) field as period between updates.
 
 .B battery
-- displays battery state using acpi
+- displays battery state using acpi output parsing (iff bool `acpi` field is present and set to true) or by gaining data right from /sys/class/power_supply/batteryname, where batteryname may be set using string `battery_name` valude (defaults to BAT0)
 
 .B time
-- displays current time. Requires string format field that describes format of displayed data. You may use any signs here. First character after '%' will describe information to be displayed: s - seconds, m - minutes, h - hour in 12 format, H - hour in 24 format, d - day of month, Y - year, y - year modulo 100, W - full week day name, w - short week day name, a - am or pm. Eg.: string format =  %d-%M-%Y
+- displays current time. Requires string `format` field that describes format of displayed data. You may use any characters here. First character after '%' will describe information to be displayed: s - seconds, m - minutes, h - hour in 12 format, H - hour in 24 format, d - day of month, Y - year, y - year modulo 100, W - full week day name, w - short week day name, a - am or pm. Eg.: string format =  %d-%M-%Y
 
 .SH EXAMPLES
 You can see example configuration when you run i3hloc with --printDefaultConfig flag
 
-.SH BUGS
-Config parsing may suck
 .SH AUTHOR
 Radosław Rowicki
