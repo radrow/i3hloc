@@ -93,7 +93,8 @@ getAcpiBatteryState = do
   let parsed = tail . T.splitOn " " . T.filter (/=',') $ acpi
       state = parsed !! 1
       percent = parsePercent (parsed !! 2)
-      time = if state == "Full"
+      time = if state == "Unknown" then ""
+             else if state == "Full"
              || (percent == 100)
              || (/=':') `T.all` (parsed !! 3)
              then "(∞:∞)"
