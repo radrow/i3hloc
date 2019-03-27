@@ -1,51 +1,90 @@
-name:                i3hloc
-version:             0.2.0.0
--- synopsis:
--- description:
-homepage:            https://bitbucket.org/ikciwor/i3hloc#readme
-license:             BSD3
-license-file:        LICENSE
-author:              Radoslaw Rowicki
-maintainer:          radrowicki@gmail.com
-category:            utils
-build-type:          Simple
-cabal-version:       >=1.10
-extra-source-files:  README.md
+cabal-version: 1.12
+
+-- This file has been generated from package.yaml by hpack version 0.31.1.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 38034662c3aa023ca7390e4be7a433aea1082c3478cacd5e7eb8d364bbe97a54
+
+name:           i3hloc
+version:        0.1.0.0
+synopsis:       Flexible scheduler for i3bar
+description:    Please see the README on GitHub at <https://github.com/radrow/i3hloc#readme>
+category:       Utils
+homepage:       https://github.com/radrow/i3hloc#readme
+bug-reports:    https://github.com/radrow/i3hloc/issues
+author:         Radosław Rowicki
+maintainer:     radrowicki@gmail.com
+copyright:      2019 Radosław Rowicki
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/radrow/i3hloc
+
+library
+  exposed-modules:
+      Block
+      Blocks.Bandwidth
+      Blocks.Battery
+      Blocks.Command
+      Blocks.Time
+      Blocks.Volume
+      Colors
+      Config
+      DisplayText
+      Hloc
+      Lib
+      Pango
+      Parsing.ConfigParser
+  other-modules:
+      Paths_i3hloc
+  hs-source-dirs:
+      src
+  default-extensions: OverloadedStrings
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , clock
+    , containers
+    , directory
+    , font-awesome-type
+    , json
+    , mtl
+    , process
+    , split
+    , text
+    , time
+    , transformers
+    , trifecta
+  default-language: Haskell2010
 
 executable i3hloc
-  ghc-options:         -O2
-  hs-source-dirs:      src
-  main-is:             Main.hs
-  default-language:    Haskell2010
-  extensions:          OverloadedStrings,
-                       MultiWayIf
-  build-depends:       base > 4 && < 9,
-                       clock,
-                       containers >= 0.5,
-                       directory,
-                       font-awesome-type,
-                       process,
-                       split,
-                       text,
-                       json,
-                       bytestring >= 0.10,
-                       trifecta >= 1.7,
-                       raw-strings-qq >= 1.1,
-                       mtl >= 2.2,
-                       time >= 1.6,
-                       dates,
-                       transformers >= 0.5
-
-  other-modules:       Blocks.Bandwidth
-                       Blocks.Battery
-                       Blocks.Command
-                       Blocks.Time
-                       Blocks.Volume
-                       Hloc
-                       Config
-                       Pango
-                       Colors
-                       Block
-                       DisplayText
-                       Parsing.ConfigParser
-                       Testing.Examples
+  main-is: Main.hs
+  other-modules:
+      Paths_i3hloc
+  hs-source-dirs:
+      i3hloc
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , bytestring
+    , clock
+    , containers
+    , directory
+    , font-awesome-type
+    , i3hloc
+    , json
+    , mtl
+    , process
+    , split
+    , text
+    , time
+    , transformers
+    , trifecta
+  default-language: Haskell2010

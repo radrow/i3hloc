@@ -2,13 +2,9 @@ module Blocks.Time where
 
 import Control.Monad.State
 import Data.Time.Clock
+import Data.Time.Calendar
+import Data.Time.Calendar.WeekDate
 import Data.Time.LocalTime
-import Data.Dates( dayToDateTime
-                 , day
-                 , month
-                 , year
-                 , dateWeekDay
-                 )
 
 twoDigitFront :: String -> String
 twoDigitFront s | null s        = "00"
@@ -19,6 +15,16 @@ twoDigitBack :: String -> String
 twoDigitBack s | null s        = "00"
                | length s == 1 = ['0', last s]
                | otherwise     = drop (length s - 2) s
+
+dayOfWeek :: Int -> String
+dayOfWeek n = case n of
+  1 -> "Monday"
+  2 -> "Tuesday"
+  3 -> "Wednesday"
+  4 -> "Thursday"
+  5 -> "Friday"
+  6 -> "Saturday"
+  7 -> "Sunday"
 
 data Seq = Separator String
          | Sec
@@ -36,19 +42,24 @@ data Seq = Separator String
 extractSeq :: Seq -> LocalTime -> String
 extractSeq s t =
   let timeOfDay = localTimeOfDay t
-      dateTime = dayToDateTime (localDay t)
+      date = localDay t
+      (year, month, day) = toGregorian date
+      hour = todHour timeOfDay
+      minute = todMin timeOfDay
+      sec = todHour timeOfDay
+      wday = (\(_,_,n) -> dayOfWeek n) $ toWeekDate date
   in case s of
-    Sec ->  twoDigitFront . takeWhile (/= '.') . show $ todSec timeOfDay
-    Minute ->  twoDigitFront . show $ todMin timeOfDay
-    Hour24 ->  twoDigitFront . show $ todHour timeOfDay
-    Hour12 ->  twoDigitFront . show $ todHour timeOfDay `mod` 12
-    AmPm -> if todHour timeOfDay < 12 then "am" else "pm"
-    Day ->  twoDigitFront . show $ day dateTime
-    Month ->  twoDigitFront . show $ month dateTime
-    Year ->  show $ year dateTime
-    WeekDayFull ->  show $ dateWeekDay dateTime
-    WeekDayShort -> take 3 $ show $ dateWeekDay dateTime
-    CenturyYear -> twoDigitBack . show $ year dateTime `mod` 100
+    Sec ->  twoDigitFront . show $ sec
+    Minute ->  twoDigitFront . show $ minute
+    Hour24 ->  twoDigitFront . show $ hour
+    Hour12 ->  twoDigitFront . show $ hour `mod` 12
+    AmPm -> if hour < 12 then "am" else "pm"
+    Day ->  twoDigitFront . show $ day
+    Month ->  twoDigitFront . show $ month
+    Year ->  show $ year
+    WeekDayFull ->  wday
+    WeekDayShort -> take 3 wday
+    CenturyYear -> twoDigitBack . show $ year `mod` 100
     Separator se -> se
 
 readSeq :: Char -> Maybe Seq
