@@ -46,7 +46,7 @@ extractSeq s t =
       (year, month, day) = toGregorian date
       hour = todHour timeOfDay
       minute = todMin timeOfDay
-      sec = todHour timeOfDay
+      sec = todSec timeOfDay
       wday = (\(_,_,n) -> dayOfWeek n) $ toWeekDate date
   in case s of
     Sec ->  twoDigitFront . show $ sec
